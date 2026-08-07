@@ -29,14 +29,7 @@ The workspace is **not limited to RAG or to a drag-and-drop node graph**. BuzzPr
 - test a system and interpret its output;
 - explain the trade-offs behind each action.
 
-For example, a RAG task may use a node canvas, while a prompt-engineering task may ask the candidate to construct and test a prompt, an MCP task may require wiring a client to exposed tools, and an observability task may present logs and metrics that must be diagnosed.
-
-The AI adapts from both channels:
-
-- what the candidate **says**;
-- what the candidate **does** in the interactive workspace.
-
-A weak or unusual decision can trigger a follow-up. A strong solution can lead to a harder constraint. The interviewer can also change the scenario mid-interview and ask the candidate to modify the system instead of merely describing what they would do.
+The AI adapts from both what the candidate **says** and what the candidate **does** in the interactive workspace.
 
 The goal is to support interactive challenges across **all 31 curriculum days**, while selecting the most relevant tasks for each candidate based on their profile and learning history.
 
@@ -44,21 +37,77 @@ See [`docs/product-concept.md`](docs/product-concept.md) for the product model a
 
 ## Tech Stack
 
-BuzzPrep uses a single-deploy **React + FastAPI** architecture:
-
 - **React + Vite + TypeScript** for the frontend.
-- **Tailwind CSS + shadcn/ui** for UI components.
 - **React Flow** for visual system and architecture challenges.
 - **Monaco Editor** for code, prompt, schema, SQL, and configuration exercises.
+- **Zustand** for client workspace state.
+- **Tailwind CSS + shadcn/ui** for the production UI layer.
 - **FastAPI + Python + Pydantic** for the interview API and validated agent outputs.
 - **LangGraph** for the adaptive interview state machine.
 - **SQLModel/SQLAlchemy** for deterministic session state.
+- **Neon Postgres** for deployed structured state, with SQLite available locally.
 - **Breeth** for semantic interview memory.
-- **Docker** for packaging and deployment.
 
 The supplied 31-day curriculum is loaded directly from JSON rather than placed in a vector database.
 
 See [`docs/tech-stack.md`](docs/tech-stack.md) for the architecture and the role of Breeth in more detail.
+
+## Repository Scaffold
+
+```text
+BuzzPrep/
+├── backend/
+│   ├── app/
+│   │   └── main.py
+│   ├── tests/
+│   │   └── test_api.py
+│   └── pyproject.toml
+├── frontend/
+│   ├── src/
+│   │   ├── App.tsx
+│   │   ├── main.tsx
+│   │   └── styles.css
+│   ├── index.html
+│   ├── package.json
+│   ├── tsconfig.json
+│   └── vite.config.ts
+├── docs/
+├── hackathon-resources/
+└── .env.example
+```
+
+The current frontend is a deliberately small integration scaffold with a session panel, React Flow canvas, and interviewer chat panel. The backend exposes the required `POST /api/interview` contract but clearly returns scaffold responses until the adaptive interview engine is implemented.
+
+## Local Development
+
+Backend:
+
+```bash
+cd backend
+python -m venv .venv
+pip install -e ".[dev]"
+uvicorn app.main:app --reload
+```
+
+Frontend, in a second terminal:
+
+```bash
+cd frontend
+npm install
+npm run dev
+```
+
+The Vite development server proxies `/api` and `/health` to FastAPI on port `8000`.
+
+Basic checks:
+
+```bash
+cd backend
+pytest
+
+cd ../frontend
+npm run build
+```
 
 ## Team — BuzzBees
 
@@ -98,7 +147,7 @@ Hackathon-provided files are stored in [`hackathon-resources/`](hackathon-resour
 
 ## Status
 
-Product concept and initial technology architecture defined. Implementation has not started yet.
+Initial full-stack scaffold is in place. Frontend, interview engine, memory, persistence, challenge generation, evaluation, and deployment are split into implementation issues.
 
 ## License
 
