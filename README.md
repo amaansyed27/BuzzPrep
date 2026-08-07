@@ -6,34 +6,41 @@ BuzzPrep is Team **BuzzBees'** submission for **The Interview Agent** hackathon 
 
 Build an AI interview agent that conducts realistic, personalized technical interviews using a learner's AI Cohort journey. The interviewer should adapt to the candidate, ask meaningful follow-up questions, preserve context across turns, and provide actionable feedback at the end.
 
-The supplied cohort covers 31 days across topics including RAG, vector databases, prompt engineering, agentic AI, MCP, deployment, security, observability, and production AI systems.
+The supplied cohort covers 31 days across environment setup, data foundations, embeddings and vector search, RAG, prompting, fine-tuning, full-stack chatbot development, memory, agents, MCP, evaluation, optimization, security, deployment, observability, and production AI systems.
 
 ## Product Idea
 
 **BuzzPrep turns the technical interview into an interactive simulation, not just a conversation.**
 
-The inspiration is scenario-based learning experiences such as Duolingo's interactive language exercises: instead of only answering abstract questions, the learner must act inside a simulated environment.
+The inspiration is scenario-based learning experiences such as Duolingo's interactive exercises: instead of only answering abstract questions, the learner must act inside a simulated environment.
 
-During a BuzzPrep interview, the candidate talks with an AI interviewer while also working inside an interactive technical canvas. The interviewer can give a real engineering task, observe how the candidate approaches it, and ask follow-up questions about the decisions they make.
+During a BuzzPrep interview, the candidate talks with an AI interviewer while also working inside an adaptive technical workspace. The interviewer can give a real engineering task, observe how the candidate approaches it, and ask follow-up questions about the decisions they make.
 
-For example, a RAG challenge could ask the candidate to assemble a pipeline by dragging components onto a canvas and connecting them:
+The workspace is **not limited to RAG or to a drag-and-drop node graph**. BuzzPrep changes the interaction style to fit the curriculum topic. Depending on the challenge, a candidate might:
 
-```text
-Data Source → Chunking → Embeddings → Vector Store → Retrieval → LLM
-```
+- connect components in a system or data-flow canvas;
+- choose and configure tools or models;
+- process or route data;
+- repair a broken architecture;
+- inspect logs, traces, metrics, or agent decisions;
+- compare model, prompt, retrieval, or deployment choices;
+- respond to a security or production incident;
+- modify code/configuration snippets or structured schemas;
+- test a system and interpret its output;
+- explain the trade-offs behind each action.
 
-Different compatible choices can be available at each stage, such as Sentence Transformers or an API embedding model, ChromaDB or Pinecone for vector storage, and structured or hybrid retrieval components. There should not be one hard-coded "correct" pipeline; the interview evaluates whether the candidate can make sensible choices and explain their trade-offs.
+For example, a RAG task may use a node canvas, while a prompt-engineering task may ask the candidate to construct and test a prompt, an MCP task may require wiring a client to exposed tools, and an observability task may present logs and metrics that must be diagnosed.
 
-The AI can then adapt the interview from both channels:
+The AI adapts from both channels:
 
 - what the candidate **says**;
-- what the candidate **builds or changes** on the canvas.
+- what the candidate **does** in the interactive workspace.
 
-A weak or unusual design choice can trigger a follow-up. A strong answer can lead to a harder scenario. The interviewer can also introduce changing requirements or failure cases and ask the candidate to modify the system rather than merely describe the solution.
+A weak or unusual decision can trigger a follow-up. A strong solution can lead to a harder constraint. The interviewer can also change the scenario mid-interview and ask the candidate to modify the system instead of merely describing what they would do.
 
-The same interaction model can later support other cohort topics such as agent orchestration, MCP, prompting, security, deployment, observability, and production-system design.
+The goal is to support interactive challenges across **all 31 curriculum days**, while selecting the most relevant tasks for each candidate based on their profile and learning history.
 
-See [`docs/product-concept.md`](docs/product-concept.md) for the current concept in more detail.
+See [`docs/product-concept.md`](docs/product-concept.md) for the product model and [`docs/curriculum-interactions.md`](docs/curriculum-interactions.md) for example interactive challenges covering the complete curriculum.
 
 ## Team — BuzzBees
 
@@ -51,7 +58,7 @@ The solution must:
 - Produce structured feedback at the end.
 - Expose the required `POST /api/interview` HTTP endpoint.
 
-BuzzPrep's interactive tasks complement these requirements rather than replacing them: actions on the canvas become additional interview context that can drive the required questions and follow-ups.
+BuzzPrep's interactive tasks complement these requirements rather than replacing them: workspace actions become additional interview context that can drive the required questions and follow-ups.
 
 ## API Contract
 
@@ -73,7 +80,7 @@ Hackathon-provided files are stored in [`hackathon-resources/`](hackathon-resour
 
 ## Status
 
-Product concept defined. Architecture and implementation are still to be decided.
+Curriculum-wide interactive interview concept defined. Architecture and implementation are still to be decided.
 
 ## License
 
