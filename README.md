@@ -42,6 +42,24 @@ The goal is to support interactive challenges across **all 31 curriculum days**,
 
 See [`docs/product-concept.md`](docs/product-concept.md) for the product model and [`docs/curriculum-interactions.md`](docs/curriculum-interactions.md) for example interactive challenges covering the complete curriculum.
 
+## Tech Stack
+
+BuzzPrep uses a single-deploy **React + FastAPI** architecture:
+
+- **React + Vite + TypeScript** for the frontend.
+- **Tailwind CSS + shadcn/ui** for UI components.
+- **React Flow** for visual system and architecture challenges.
+- **Monaco Editor** for code, prompt, schema, SQL, and configuration exercises.
+- **FastAPI + Python + Pydantic** for the interview API and validated agent outputs.
+- **LangGraph** for the adaptive interview state machine.
+- **SQLModel/SQLAlchemy** for deterministic session state.
+- **Breeth** for semantic interview memory.
+- **Docker** for packaging and deployment.
+
+The supplied 31-day curriculum is loaded directly from JSON rather than placed in a vector database.
+
+See [`docs/tech-stack.md`](docs/tech-stack.md) for the architecture and the role of Breeth in more detail.
+
 ## Team — BuzzBees
 
 - **Ilma Khan** — Team Leader — [@ilmatech](https://github.com/ilmatech)
@@ -80,7 +98,7 @@ Hackathon-provided files are stored in [`hackathon-resources/`](hackathon-resour
 
 ## Status
 
-Curriculum-wide interactive interview concept defined. Architecture and implementation are still to be decided.
+Product concept and initial technology architecture defined. Implementation has not started yet.
 
 ## License
 
