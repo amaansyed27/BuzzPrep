@@ -1,0 +1,274 @@
+:root {
+  font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  color: #171717;
+  background: #f5f1e8;
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  min-width: 320px;
+  min-height: 100vh;
+  background:
+    radial-gradient(circle at top left, rgba(245, 190, 49, 0.18), transparent 32rem),
+    #f5f1e8;
+}
+
+button,
+input {
+  font: inherit;
+}
+
+button {
+  cursor: pointer;
+}
+
+button:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
+.app-shell {
+  min-height: 100vh;
+  padding: 24px;
+}
+
+.topbar {
+  max-width: 1500px;
+  margin: 0 auto 18px;
+  display: flex;
+  align-items: end;
+  justify-content: space-between;
+}
+
+.topbar h1,
+.panel h2,
+.topbar p,
+.panel p {
+  margin: 0;
+}
+
+.topbar h1 {
+  font-size: clamp(2rem, 4vw, 3.6rem);
+  letter-spacing: -0.06em;
+}
+
+.eyebrow,
+.panel-kicker {
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+  font-size: 0.72rem;
+  font-weight: 800;
+  color: #826400;
+}
+
+.status-pill {
+  border: 1px solid #c7b98d;
+  background: #fffaf0;
+  padding: 7px 10px;
+  border-radius: 999px;
+  font-size: 0.78rem;
+  font-weight: 700;
+}
+
+.workspace-grid {
+  max-width: 1500px;
+  min-height: calc(100vh - 130px);
+  margin: 0 auto;
+  display: grid;
+  grid-template-columns: minmax(220px, 0.72fr) minmax(500px, 1.8fr) minmax(280px, 0.95fr);
+  gap: 12px;
+}
+
+.panel {
+  border: 1px solid #d8cfb6;
+  background: rgba(255, 252, 244, 0.92);
+  box-shadow: 0 12px 32px rgba(44, 36, 16, 0.06);
+  overflow: hidden;
+}
+
+.candidate-panel,
+.chat-panel {
+  padding: 20px;
+}
+
+.candidate-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.candidate-panel h2,
+.panel-heading h2 {
+  font-size: 1.15rem;
+}
+
+.candidate-panel > p:not(.panel-kicker) {
+  line-height: 1.6;
+  color: #5f5848;
+}
+
+.session-meta {
+  display: grid;
+  gap: 8px;
+  margin: 8px 0 0;
+}
+
+.session-meta div {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  border-bottom: 1px solid #e4dcc8;
+  padding-bottom: 8px;
+}
+
+.session-meta dt {
+  color: #766e5d;
+}
+
+.session-meta dd {
+  margin: 0;
+  font-weight: 700;
+}
+
+.primary-button {
+  margin-top: auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  border: 0;
+  background: #171717;
+  color: white;
+  padding: 11px 14px;
+}
+
+.canvas-panel {
+  display: grid;
+  grid-template-rows: auto 1fr;
+  min-height: 620px;
+}
+
+.panel-heading {
+  min-height: 70px;
+  padding: 16px 18px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border-bottom: 1px solid #e4dcc8;
+}
+
+.panel-heading > span {
+  color: #7a715e;
+  font-size: 0.8rem;
+}
+
+.flow-wrap {
+  min-height: 520px;
+  background: #fbf8f0;
+}
+
+.react-flow__node {
+  border: 1px solid #9e8e61 !important;
+  background: #fffaf0 !important;
+  border-radius: 4px !important;
+  box-shadow: 0 8px 18px rgba(49, 40, 15, 0.08) !important;
+  font-weight: 700;
+}
+
+.chat-panel {
+  display: grid;
+  grid-template-rows: auto 1fr auto;
+  padding: 0;
+  min-height: 620px;
+}
+
+.messages {
+  padding: 16px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.message {
+  padding: 11px 12px;
+  border: 1px solid #ddd4be;
+  background: #fffdf8;
+}
+
+.message.candidate {
+  margin-left: 22px;
+  background: #f2e5ad;
+  border-color: #d4bd5a;
+}
+
+.message strong {
+  font-size: 0.78rem;
+}
+
+.message p {
+  margin-top: 5px;
+  line-height: 1.45;
+  color: #504a3e;
+}
+
+.chat-form {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 8px;
+  padding: 14px;
+  border-top: 1px solid #e4dcc8;
+}
+
+.chat-form input {
+  width: 100%;
+  min-width: 0;
+  border: 1px solid #cfc5ab;
+  background: #fffdf8;
+  padding: 10px 11px;
+  outline: none;
+}
+
+.chat-form input:focus {
+  border-color: #8e6d00;
+}
+
+.chat-form button {
+  width: 42px;
+  border: 0;
+  background: #171717;
+  color: white;
+  display: grid;
+  place-items: center;
+}
+
+@media (max-width: 1100px) {
+  .workspace-grid {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .canvas-panel {
+    grid-column: 1 / -1;
+    grid-row: 1;
+  }
+}
+
+@media (max-width: 760px) {
+  .app-shell {
+    padding: 12px;
+  }
+
+  .workspace-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .canvas-panel {
+    grid-column: auto;
+  }
+}
