@@ -7,6 +7,26 @@ from pydantic import BaseModel, Field, model_validator
 
 from app.models.interview import InterviewSession, InterviewTurn
 from app.schemas.interview import Feedback
+from app.schemas.workspace import SerializedWorkspace
+
+
+class InterviewEngineError(Exception):
+    status_code = 500
+    code = "interview_engine_error"
+
+    def __init__(self, message: str) -> None:
+        self.message = message
+        super().__init__(message)
+
+
+class InterviewProviderError(InterviewEngineError):
+    status_code = 503
+    code = "llm_provider_error"
+
+
+class InterviewInputError(InterviewEngineError):
+    status_code = 422
+    code = "invalid_candidate"
 
 
 class InterviewStatePatch(BaseModel):
@@ -28,6 +48,7 @@ class InterviewEngineResult(BaseModel):
     feedback: Feedback | None = None
     state_patch: InterviewStatePatch = Field(default_factory=InterviewStatePatch)
     turn_kind: str = "message"
+    turn_payload: dict[str, Any] | None = None
 
     @model_validator(mode="after")
     def validate_feedback(self) -> InterviewEngineResult:
@@ -39,22 +60,34 @@ class InterviewEngineResult(BaseModel):
 
 
 class InterviewEngine(Protocol):
-    def start(self, session: InterviewSession) -> InterviewEngineResult: ...
+    def start(
+        self,
+        session: InterviewSession,
+        *,
+        workspace: SerializedWorkspace | None = None,
+    ) -> InterviewEngineResult: ...
 
     def respond(
         self,
         session: InterviewSession,
         message: str,
         conversation: Sequence[InterviewTurn],
+        *,
+        workspace: SerializedWorkspace | None = None,
     ) -> InterviewEngineResult: ...
 
 
 class PlaceholderInterviewEngine:
-    """Issue #1 boundary implementation; deliberately performs no interview generation."""
+    """Legacy boundary implementation retained for explicit tests or diagnostics."""
 
-    def start(self, session: InterviewSession) -> InterviewEngineResult:
+    def start(
+        self,
+        session: InterviewSession,
+        *,
+        workspace: SerializedWorkspace | None = None,
+    ) -> InterviewEngineResult:
         return InterviewEngineResult(
-            reply="Interview session created. Interview generation is not connected in Issue #1.",
+            reply="Interview session created. Interview generation is not connected.",
             turn_kind="placeholder",
         )
 
@@ -63,8 +96,10 @@ class PlaceholderInterviewEngine:
         session: InterviewSession,
         message: str,
         conversation: Sequence[InterviewTurn],
+        *,
+        workspace: SerializedWorkspace | None = None,
     ) -> InterviewEngineResult:
         return InterviewEngineResult(
-            reply="Response persisted. Interview generation is not connected in Issue #1.",
+            reply="Response persisted. Interview generation is not connected.",
             turn_kind="placeholder",
         )
