@@ -1,13 +1,11 @@
 import React, { useState } from "react";
 import { useWorkspaceStore } from "./workspace/store";
-import { IconButton } from "./IconButton";
 
 export default function WorkspaceToolbar() {
   const [showActivity, setShowActivity] = useState(false);
   const events = useWorkspaceStore((s) => s.events);
   const undo = useWorkspaceStore((s) => s.undo);
   const candidateReset = useWorkspaceStore((s) => s.candidateReset);
-  const resetWorkspace = useWorkspaceStore((s) => s.resetWorkspace);
 
   return (
     <div className="workspace-toolbar-wrap">
