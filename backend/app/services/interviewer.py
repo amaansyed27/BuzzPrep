@@ -1,6 +1,7 @@
 from __future__ import annotations
 
-from typing import Annotated, Any, Protocol, Sequence
+from collections.abc import Sequence
+from typing import Annotated, Any, Protocol
 
 from pydantic import BaseModel, Field, model_validator
 
@@ -29,7 +30,7 @@ class InterviewEngineResult(BaseModel):
     turn_kind: str = "message"
 
     @model_validator(mode="after")
-    def validate_feedback(self) -> "InterviewEngineResult":
+    def validate_feedback(self) -> InterviewEngineResult:
         if self.done and self.feedback is None:
             raise ValueError("A completed interview engine result must include feedback")
         if not self.done and self.feedback is not None:

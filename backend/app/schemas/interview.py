@@ -19,7 +19,7 @@ class InterviewRequest(BaseModel):
         return value
 
     @model_validator(mode="after")
-    def validate_request_kind(self) -> "InterviewRequest":
+    def validate_request_kind(self) -> InterviewRequest:
         is_start = self.candidate is not None
         is_turn = self.message is not None
 

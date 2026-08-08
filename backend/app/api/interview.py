@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from collections.abc import Iterator
+from typing import Annotated
 
 from fastapi import APIRouter, Depends, Request
 
@@ -29,7 +30,7 @@ def get_interview_session_service(request: Request) -> Iterator[InterviewSession
 )
 def interview(
     payload: InterviewRequest,
-    service: InterviewSessionService = Depends(get_interview_session_service),
+    service: Annotated[InterviewSessionService, Depends(get_interview_session_service)],
 ) -> InterviewResponse:
     if payload.is_start:
         assert payload.candidate is not None
