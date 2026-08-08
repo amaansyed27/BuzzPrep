@@ -7,7 +7,6 @@ import type {
   WorkspaceState,
   WorkspaceNode,
   WorkspaceEdge,
-  WorkspaceEvent,
   WorkspaceEventAdd,
   WorkspaceEventRemove,
   WorkspaceEventConnect,
@@ -19,15 +18,19 @@ import type {
   WorkspaceEventUndo,
   WorkspaceEventReset,
   SerializedWorkspace,
-  WorkspaceStateSnapshot,
 } from "./types";
-import { createSnapshot, serializeWorkspace, deserializeWorkspace } from "./serialization";
+import {
+  createResetBaseline,
+  createSnapshot,
+  serializeWorkspace,
+  deserializeWorkspace,
+} from "./serialization";
 
 /**
  * Store type definition
  */
 type WorkspaceStoreState = WorkspaceState & {
-  // Actions
+  // Candidate actions
   addNode: (nodeId: string, nodeData: Record<string, unknown>) => void;
   removeNode: (nodeId: string) => void;
   connectNodes: (edgeId: string, source: string, target: string) => void;
@@ -37,15 +40,27 @@ type WorkspaceStoreState = WorkspaceState & {
   run: (target: string) => void;
   submit: (taskId: string, data: Record<string, unknown>) => void;
   undo: () => void;
+  candidateReset: () => void;
+
+  // UI-only selection actions
+  selectNode: (nodeId: string) => void;
+  selectNodes: (nodeIds: string[]) => void;
+  selectEdges: (edgeIds: string[]) => void;
+  clearSelection: () => void;
+  setSelection: (nodeIds: string[], edgeIds: string[]) => void;
+
+  // Lifecycle/state actions
   resetWorkspace: () => void; // hard reset, clears events
-  candidateReset: () => void; // resets workspace but preserves events
-  initializeChallenge: (serialized?: SerializedWorkspace) => void; // hard initialize with optional snapshot
-  setWorkspaceActive: (active: boolean, challengeId?: string, initialSnapshot?: SerializedWorkspace) => void;
+  initializeChallenge: (serialized?: SerializedWorkspace) => void;
+  setWorkspaceActive: (
+    active: boolean,
+    challengeId?: string,
+    initialSnapshot?: SerializedWorkspace
+  ) => void;
   serializeWorkspace: () => SerializedWorkspace;
   restoreWorkspace: (serialized: unknown) => void;
   setNodes: (nodes: WorkspaceNode[]) => void;
   setEdges: (edges: WorkspaceEdge[]) => void;
-  setSelection: (nodeIds: string[], edgeIds: string[]) => void;
 };
 
 const initialState: WorkspaceState = {
@@ -59,6 +74,7 @@ const initialState: WorkspaceState = {
   history: [],
   workspaceActive: false,
   challengeId: undefined,
+  initialSnapshot: undefined,
 };
 
 function generateEventId(): string {
@@ -85,7 +101,6 @@ export const useWorkspaceStore = create<WorkspaceStoreState>((set, get) => ({
         timestamp: getCurrentTimestamp(),
         payload: { nodeId, nodeData },
       };
-      // Save snapshot before mutation for undo
       const snapshot = createSnapshot(state);
       return {
         nodes: [...state.nodes, newNode],
@@ -102,7 +117,6 @@ export const useWorkspaceStore = create<WorkspaceStoreState>((set, get) => ({
         timestamp: getCurrentTimestamp(),
         payload: { nodeId },
       };
-      // Save snapshot before mutation for undo
       const snapshot = createSnapshot(state);
       return {
         nodes: state.nodes.filter((n) => n.id !== nodeId),
@@ -121,7 +135,6 @@ export const useWorkspaceStore = create<WorkspaceStoreState>((set, get) => ({
         timestamp: getCurrentTimestamp(),
         payload: { edgeId, source, target },
       };
-      // Save snapshot before mutation for undo
       const snapshot = createSnapshot(state);
       return {
         edges: [...state.edges, newEdge],
@@ -132,16 +145,20 @@ export const useWorkspaceStore = create<WorkspaceStoreState>((set, get) => ({
 
   removeEdge: (edgeId: string) =>
     set((state) => {
-      const event = ({
+      const edge = state.edges.find((candidate) => candidate.id === edgeId);
+      const event: WorkspaceEventDisconnect = {
         id: generateEventId(),
         type: "disconnect",
         timestamp: getCurrentTimestamp(),
-        payload: { edgeId },
-      } as WorkspaceEvent);
-      // Save snapshot before mutation for undo
+        payload: {
+          edgeId,
+          source: edge?.source,
+          target: edge?.target,
+        },
+      };
       const snapshot = createSnapshot(state);
       return {
-        edges: state.edges.filter((e) => e.id !== edgeId),
+        edges: state.edges.filter((candidate) => candidate.id !== edgeId),
         events: [...state.events, event],
         history: [...state.history, snapshot],
       };
@@ -180,7 +197,6 @@ export const useWorkspaceStore = create<WorkspaceStoreState>((set, get) => ({
         timestamp: getCurrentTimestamp(),
         payload: { configKey: key, value },
       };
-      // Save snapshot before mutation for undo
       const snapshot = createSnapshot(state);
       return {
         config: { ...state.config, [key]: value },
@@ -197,7 +213,6 @@ export const useWorkspaceStore = create<WorkspaceStoreState>((set, get) => ({
         timestamp: getCurrentTimestamp(),
         payload: { editorId, content },
       };
-      // Save snapshot before mutation for undo
       const snapshot = createSnapshot(state);
       return {
         editors: { ...state.editors, [editorId]: content },
@@ -249,7 +264,6 @@ export const useWorkspaceStore = create<WorkspaceStoreState>((set, get) => ({
         timestamp: getCurrentTimestamp(),
         payload: { restoredToIndex },
       };
-      // Undo restores state and records the undo event
       return {
         nodes: prev.nodes,
         edges: prev.edges,
@@ -258,50 +272,56 @@ export const useWorkspaceStore = create<WorkspaceStoreState>((set, get) => ({
         submissions: prev.submissions,
         events: [...state.events, event],
         history: state.history.slice(0, -1),
+        selection: { nodeIds: [], edgeIds: [] },
       };
     }),
 
   resetWorkspace: () =>
-    set(() => initialState),
+    set(() => ({ ...initialState })),
 
   candidateReset: () =>
     set((state) => {
-      // Preserve events (evidence), reset nodes/edges/editors/submissions to initialSnapshot if present
       const initial = state.initialSnapshot;
-      const resetEvent = (initialSnapshotPresent: boolean): WorkspaceEventReset => ({
+      const resetEvent: WorkspaceEventReset = {
         id: generateEventId(),
         type: "reset",
         timestamp: getCurrentTimestamp(),
-        payload: { reason: "candidate_reset", initialSnapshotPresent },
-      });
+        payload: {
+          reason: "candidate_reset",
+          initialSnapshotPresent: initial !== undefined,
+        },
+      };
+
       if (initial) {
-        // Append exactly one reset event and preserve existing events
         return {
           nodes: initial.nodes,
           edges: initial.edges,
           config: initial.config,
           editors: initial.editors,
           submissions: initial.submissions,
-          events: [...state.events, resetEvent(true)],
+          events: [...state.events, resetEvent],
           history: [],
+          selection: { nodeIds: [], edgeIds: [] },
+          challengeId: initial.challengeId,
         };
       }
-      // No initial snapshot available - clear state but preserve events, append reset
+
       return {
         nodes: [],
         edges: [],
         config: {},
         editors: {},
         submissions: [],
-        events: [...state.events, resetEvent(false)],
+        events: [...state.events, resetEvent],
         history: [],
+        selection: { nodeIds: [], edgeIds: [] },
       };
     }),
 
   initializeChallenge: (serialized?: SerializedWorkspace) =>
-    set((state) => {
-      // Hard initialize: set provided snapshot (if any) and clear events/history
+    set(() => {
       if (serialized) {
+        const baseline = serialized.initialSnapshot ?? createResetBaseline(serialized);
         return {
           nodes: serialized.nodes,
           edges: serialized.edges,
@@ -310,12 +330,13 @@ export const useWorkspaceStore = create<WorkspaceStoreState>((set, get) => ({
           submissions: serialized.submissions,
           events: [],
           history: [],
-          initialSnapshot: serialized,
+          selection: { nodeIds: [], edgeIds: [] },
+          initialSnapshot: baseline,
           workspaceActive: true,
-          challengeId: serialized.challengeId ?? undefined,
+          challengeId: serialized.challengeId,
         };
       }
-      // No snapshot - start empty and clear any previous challengeId
+
       return {
         nodes: [],
         edges: [],
@@ -324,17 +345,25 @@ export const useWorkspaceStore = create<WorkspaceStoreState>((set, get) => ({
         submissions: [],
         events: [],
         history: [],
+        selection: { nodeIds: [], edgeIds: [] },
         initialSnapshot: undefined,
         workspaceActive: true,
         challengeId: undefined,
       };
     }),
 
-  setWorkspaceActive: (active: boolean, challengeId?: string, initialSnapshot?: SerializedWorkspace) =>
+  setWorkspaceActive: (
+    active: boolean,
+    challengeId?: string,
+    initialSnapshot?: SerializedWorkspace
+  ) =>
     set(() => ({
       workspaceActive: active,
       challengeId: active ? challengeId : undefined,
-      initialSnapshot: initialSnapshot ?? undefined,
+      initialSnapshot:
+        active && initialSnapshot
+          ? initialSnapshot.initialSnapshot ?? createResetBaseline(initialSnapshot)
+          : undefined,
     })),
 
   serializeWorkspace: () => {
@@ -344,6 +373,7 @@ export const useWorkspaceStore = create<WorkspaceStoreState>((set, get) => ({
 
   restoreWorkspace: (serialized: unknown) => {
     const data = deserializeWorkspace(serialized);
+    const baseline = data.initialSnapshot ?? createResetBaseline(data);
     set(() => ({
       nodes: data.nodes,
       edges: data.edges,
@@ -355,6 +385,7 @@ export const useWorkspaceStore = create<WorkspaceStoreState>((set, get) => ({
       selection: { nodeIds: [], edgeIds: [] },
       workspaceActive: data.workspaceActive,
       challengeId: data.challengeId,
+      initialSnapshot: baseline,
     }));
   },
 
