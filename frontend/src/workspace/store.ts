@@ -15,7 +15,7 @@ import type {
   WorkspaceEventEdit,
   WorkspaceEventRun,
   WorkspaceEventSubmit,
-  WorkspaceEventSelect,
+  WorkspaceEventUndo,
   SerializedWorkspace,
   WorkspaceStateSnapshot,
 } from "./types";
@@ -29,20 +29,18 @@ type WorkspaceStoreState = WorkspaceState & {
   addNode: (nodeId: string, nodeData: Record<string, unknown>) => void;
   removeNode: (nodeId: string) => void;
   connectNodes: (edgeId: string, source: string, target: string) => void;
-  selectNode: (nodeId: string) => void;
-  selectNodes: (nodeIds: string[]) => void;
-  selectEdges: (edgeIds: string[]) => void;
-  clearSelection: () => void;
   configure: (key: string, value: unknown) => void;
   edit: (editorId: string, content: string) => void;
   run: (target: string) => void;
   submit: (taskId: string, data: Record<string, unknown>) => void;
   undo: () => void;
   resetWorkspace: () => void;
+  setWorkspaceActive: (active: boolean, challengeId?: string) => void;
   serializeWorkspace: () => SerializedWorkspace;
   restoreWorkspace: (serialized: unknown) => void;
   setNodes: (nodes: WorkspaceNode[]) => void;
   setEdges: (edges: WorkspaceEdge[]) => void;
+  setSelection: (nodeIds: string[], edgeIds: string[]) => void;
 };
 
 const initialState: WorkspaceState = {
@@ -54,6 +52,8 @@ const initialState: WorkspaceState = {
   submissions: [],
   events: [],
   history: [],
+  workspaceActive: false,
+  challengeId: undefined,
 };
 
 function generateEventId(): string {
@@ -126,32 +126,28 @@ export const useWorkspaceStore = create<WorkspaceStoreState>((set, get) => ({
     }),
 
   selectNode: (nodeId: string) =>
-    set((state) => ({
+    set(() => ({
       selection: { nodeIds: [nodeId], edgeIds: [] },
     })),
 
   selectNodes: (nodeIds: string[]) =>
-    set((state) => {
-      const event: WorkspaceEventSelect = {
-        id: generateEventId(),
-        type: "select",
-        timestamp: getCurrentTimestamp(),
-        payload: { nodeIds, edgeIds: [] },
-      };
-      return {
-        selection: { nodeIds, edgeIds: [] },
-        events: [...state.events, event],
-      };
-    }),
+    set(() => ({
+      selection: { nodeIds, edgeIds: [] },
+    })),
 
   selectEdges: (edgeIds: string[]) =>
-    set((state) => ({
+    set(() => ({
       selection: { nodeIds: [], edgeIds },
     })),
 
   clearSelection: () =>
     set(() => ({
       selection: { nodeIds: [], edgeIds: [] },
+    })),
+
+  setSelection: (nodeIds: string[], edgeIds: string[]) =>
+    set(() => ({
+      selection: { nodeIds, edgeIds },
     })),
 
   configure: (key: string, value: unknown) =>
@@ -224,19 +220,33 @@ export const useWorkspaceStore = create<WorkspaceStoreState>((set, get) => ({
     set((state) => {
       if (state.history.length === 0) return state;
       const prev = state.history[state.history.length - 1];
-      // Undo restores state but keeps events intact (full history preserved)
+      const restoredToIndex = state.history.length - 1;
+      const event: WorkspaceEventUndo = {
+        id: generateEventId(),
+        type: "undo",
+        timestamp: getCurrentTimestamp(),
+        payload: { restoredToIndex },
+      };
+      // Undo restores state and records the undo event
       return {
         nodes: prev.nodes,
         edges: prev.edges,
         config: prev.config,
         editors: prev.editors,
         submissions: prev.submissions,
+        events: [...state.events, event],
         history: state.history.slice(0, -1),
       };
     }),
 
   resetWorkspace: () =>
     set(() => initialState),
+
+  setWorkspaceActive: (active: boolean, challengeId?: string) =>
+    set(() => ({
+      workspaceActive: active,
+      challengeId: active ? challengeId : undefined,
+    })),
 
   serializeWorkspace: () => {
     const state = get();
@@ -254,6 +264,8 @@ export const useWorkspaceStore = create<WorkspaceStoreState>((set, get) => ({
       events: data.events,
       history: [],
       selection: { nodeIds: [], edgeIds: [] },
+      workspaceActive: data.workspaceActive,
+      challengeId: data.challengeId,
     }));
   },
 

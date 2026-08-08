@@ -8,17 +8,18 @@ export default function FlowCanvas() {
   const interviewNodes = useInterviewStore((s) => s.nodes);
   const interviewEdges = useInterviewStore((s) => s.edges);
 
-  // Workspace store - single source of truth for workspace-mode operations
+  // Workspace store - explicit flag determines if workspace is active
   const workspaceNodes = useWorkspaceStore((s) => s.nodes);
   const workspaceEdges = useWorkspaceStore((s) => s.edges);
+  const workspaceActive = useWorkspaceStore((s) => s.workspaceActive);
   const removeNode = useWorkspaceStore((s) => s.removeNode);
   const connectNodes = useWorkspaceStore((s) => s.connectNodes);
   const setNodes = useWorkspaceStore((s) => s.setNodes);
   const setEdges = useWorkspaceStore((s) => s.setEdges);
 
-  // Use workspace nodes/edges if available (workspace mode), otherwise fall back to interview store (demo mode)
-  const nodes = workspaceNodes.length > 0 ? workspaceNodes : interviewNodes;
-  const edges = workspaceEdges.length > 0 ? workspaceEdges : interviewEdges;
+  // Use workspace nodes/edges if workspace is active, otherwise fall back to interview store (demo mode)
+  const nodes = workspaceActive ? workspaceNodes : interviewNodes;
+  const edges = workspaceActive ? workspaceEdges : interviewEdges;
 
   // Handle node position/selection changes from React Flow
   // These don't create workspace events, just update local positions
@@ -30,11 +31,11 @@ export default function FlowCanvas() {
         // Only sync position and selected state, not creation/deletion
         return { ...node, position: change.position ?? node.position, selected: change.selected ?? node.selected };
       });
-      if (workspaceNodes.length > 0) {
+      if (workspaceActive) {
         setNodes(updated);
       }
     },
-    [nodes, workspaceNodes, setNodes]
+    [nodes, workspaceActive, setNodes]
   );
 
   const onEdgesChange = useCallback(
@@ -44,17 +45,17 @@ export default function FlowCanvas() {
         if (!change) return edge;
         return { ...edge, selected: change.selected ?? edge.selected };
       });
-      if (workspaceEdges.length > 0) {
+      if (workspaceActive) {
         setEdges(updated);
       }
     },
-    [edges, workspaceEdges, setEdges]
+    [edges, workspaceActive, setEdges]
   );
 
   // Handle new connections - single mutation path through workspace store
   const onConnect = useCallback(
     (connection: Connection) => {
-      if (workspaceNodes.length === 0) {
+      if (!workspaceActive) {
         // Demo mode: don't create workspace events
         return;
       }
@@ -62,13 +63,13 @@ export default function FlowCanvas() {
       const edgeId = `edge_${connection.source}_${connection.target}_${Date.now()}`;
       connectNodes(edgeId, connection.source || "", connection.target || "");
     },
-    [workspaceNodes, connectNodes]
+    [workspaceActive, connectNodes]
   );
 
   // Handle node deletion - single mutation path through workspace store
   const onNodesDelete = useCallback(
     (nodesToDelete: typeof nodes) => {
-      if (workspaceNodes.length === 0) {
+      if (!workspaceActive) {
         // Demo mode: don't create workspace events
         return;
       }
@@ -77,7 +78,7 @@ export default function FlowCanvas() {
         removeNode(node.id);
       });
     },
-    [workspaceNodes, removeNode]
+    [workspaceActive, removeNode]
   );
 
   return (
