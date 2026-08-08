@@ -1,0 +1,188 @@
+import type { Node, Edge } from "@xyflow/react";
+
+/**
+ * Core workspace types for issue #4:
+ * A curriculum-agnostic architecture tracking candidate actions
+ */
+
+export type WorkspaceNodeData = Record<string, unknown>;
+
+export type WorkspaceNode = Node<WorkspaceNodeData>;
+export type WorkspaceEdge = Edge;
+
+export type WorkspaceSelection = {
+  nodeIds: string[];
+  edgeIds: string[];
+};
+
+export type WorkspaceConfig = Record<string, unknown>;
+
+export type WorkspaceEditor = {
+  [editorId: string]: string; // editorId -> content
+};
+
+export type WorkspaceSubmission = {
+  taskId: string;
+  timestamp: string;
+  payload: Record<string, unknown>;
+};
+
+/**
+ * Discriminated union for workspace events
+ */
+export type WorkspaceEventType =
+  | "add"
+  | "remove"
+  | "connect"
+  | "disconnect"
+  | "configure"
+  | "edit"
+  | "run"
+  | "submit"
+  | "undo"
+  | "reset";
+
+export type WorkspaceEventBase = {
+  id: string;
+  type: WorkspaceEventType;
+  timestamp: string;
+};
+
+export type WorkspaceEventAdd = WorkspaceEventBase & {
+  type: "add";
+  payload: {
+    nodeId: string;
+    nodeData: WorkspaceNodeData;
+  };
+};
+
+export type WorkspaceEventRemove = WorkspaceEventBase & {
+  type: "remove";
+  payload: {
+    nodeId: string;
+  };
+};
+
+export type WorkspaceEventConnect = WorkspaceEventBase & {
+  type: "connect";
+  payload: {
+    edgeId: string;
+    source: string;
+    target: string;
+  };
+};
+
+export type WorkspaceEventDisconnect = WorkspaceEventBase & {
+  type: "disconnect";
+  payload: {
+    edgeId: string;
+    source?: string;
+    target?: string;
+  };
+};
+
+export type WorkspaceEventConfigure = WorkspaceEventBase & {
+  type: "configure";
+  payload: {
+    configKey: string;
+    value: unknown;
+  };
+};
+
+export type WorkspaceEventEdit = WorkspaceEventBase & {
+  type: "edit";
+  payload: {
+    editorId: string;
+    content: string;
+  };
+};
+
+export type WorkspaceEventRun = WorkspaceEventBase & {
+  type: "run";
+  payload: {
+    target: string;
+  };
+};
+
+export type WorkspaceEventSubmit = WorkspaceEventBase & {
+  type: "submit";
+  payload: {
+    taskId: string;
+    data: Record<string, unknown>;
+  };
+};
+
+export type WorkspaceEventUndo = WorkspaceEventBase & {
+  type: "undo";
+  payload: {
+    // Metadata about what was undone
+    restoredToIndex?: number; // which point in history was restored
+  };
+};
+
+export type WorkspaceEventReset = WorkspaceEventBase & {
+  type: "reset";
+  payload: {
+    reason?: string;
+    initialSnapshotPresent: boolean;
+  };
+};
+
+export type WorkspaceEvent =
+  | WorkspaceEventAdd
+  | WorkspaceEventRemove
+  | WorkspaceEventConnect
+  | WorkspaceEventDisconnect
+  | WorkspaceEventConfigure
+  | WorkspaceEventEdit
+  | WorkspaceEventRun
+  | WorkspaceEventSubmit
+  | WorkspaceEventUndo
+  | WorkspaceEventReset;
+
+/**
+ * Immutable challenge baseline used by candidateReset(). It intentionally omits
+ * event/history/UI state so serializing it cannot recursively embed a workspace.
+ */
+export type WorkspaceResetBaseline = {
+  nodes: WorkspaceNode[];
+  edges: WorkspaceEdge[];
+  config: WorkspaceConfig;
+  editors: WorkspaceEditor;
+  submissions: WorkspaceSubmission[];
+  challengeId?: string;
+};
+
+export type WorkspaceState = {
+  nodes: WorkspaceNode[];
+  edges: WorkspaceEdge[];
+  selection: WorkspaceSelection;
+  config: WorkspaceConfig;
+  editors: WorkspaceEditor;
+  submissions: WorkspaceSubmission[];
+  events: WorkspaceEvent[];
+  history: WorkspaceStateSnapshot[]; // for undo
+  workspaceActive: boolean; // explicit flag: is a workspace currently active?
+  challengeId?: string; // optional identifier for the current challenge/task
+  initialSnapshot?: WorkspaceResetBaseline; // reset baseline that survives serialize/restore
+};
+
+export type WorkspaceStateSnapshot = {
+  nodes: WorkspaceNode[];
+  edges: WorkspaceEdge[];
+  config: WorkspaceConfig;
+  editors: WorkspaceEditor;
+  submissions: WorkspaceSubmission[];
+};
+
+export type SerializedWorkspace = {
+  nodes: WorkspaceNode[];
+  edges: WorkspaceEdge[];
+  config: WorkspaceConfig;
+  editors: WorkspaceEditor;
+  submissions: WorkspaceSubmission[];
+  events: WorkspaceEvent[];
+  workspaceActive: boolean;
+  challengeId?: string;
+  initialSnapshot?: WorkspaceResetBaseline;
+};
