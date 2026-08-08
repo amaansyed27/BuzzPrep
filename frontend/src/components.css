@@ -21,9 +21,22 @@
 .primary-button:disabled { opacity:0.5; cursor:not-allowed; }
 
 /* Canvas */
-.canvas-panel { display:grid; grid-template-rows:auto 1fr; min-height:620px; }
+.canvas-panel { display:grid; grid-template-rows:auto auto 1fr; min-height:620px; }
 .panel-heading { min-height:66px; padding:14px 18px; display:flex; align-items:center; justify-content:space-between; border-bottom:1px solid rgba(255,255,255,0.02); }
-.flow-wrap { min-height:520px; background: linear-gradient(180deg, rgba(255,255,255,0.01), rgba(255,255,255,0.005)); }
+
+.workspace-toolbar-wrap { border-bottom:1px solid rgba(255,255,255,0.02); }
+.workspace-toolbar { display:flex; gap:8px; padding:10px 14px; align-items:center; flex-wrap:wrap; }
+.toolbar-action-button { border:1px solid rgba(255,255,255,0.06); background:transparent; color:var(--text-100); padding:6px 10px; border-radius:4px; font-size:0.85rem; cursor:pointer; }
+.toolbar-action-button:hover { background:rgba(255,255,255,0.03); }
+
+.workspace-activity { padding:12px 14px; background:rgba(0,0,0,0.2); max-height:160px; overflow-y:auto; border-bottom:1px solid rgba(255,255,255,0.02); }
+.activity-header { font-weight:700; font-size:0.8rem; margin-bottom:8px; color:var(--muted-200); }
+.activity-list { display:flex; flex-direction:column; gap:4px; }
+.activity-item { display:flex; justify-content:space-between; font-size:0.75rem; padding:4px 6px; background:rgba(255,255,255,0.02); border-radius:3px; }
+.activity-type { color:var(--accent-amber); font-weight:700; }
+.activity-time { color:var(--muted-200); font-size:0.7rem; }
+
+.flow-wrap { min-height:440px; background: linear-gradient(180deg, rgba(255,255,255,0.01), rgba(255,255,255,0.005)); }
 .react-flow__node { border:1px solid rgba(255,255,255,0.06) !important; background: linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.01)) !important; border-radius:6px !important; padding:8px !important; font-weight:700; color:var(--text-100) !important; }
 
 /* Chat */
