@@ -4,11 +4,14 @@ from typing import Any
 
 from pydantic import BaseModel, Field, field_validator, model_validator
 
+from app.schemas.workspace import SerializedWorkspace
+
 
 class InterviewRequest(BaseModel):
     sessionId: str = Field(min_length=1, max_length=255)
     candidate: dict[str, Any] | None = None
     message: str | None = None
+    workspace: SerializedWorkspace | None = None
 
     @field_validator("sessionId")
     @classmethod
