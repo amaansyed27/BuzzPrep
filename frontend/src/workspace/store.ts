@@ -1,0 +1,269 @@
+/**
+ * Workspace store using Zustand
+ * Manages the curriculum-agnostic interview workspace state and event tracking
+ */
+import { create } from "zustand";
+import type {
+  WorkspaceState,
+  WorkspaceNode,
+  WorkspaceEdge,
+  WorkspaceEvent,
+  WorkspaceEventAdd,
+  WorkspaceEventRemove,
+  WorkspaceEventConnect,
+  WorkspaceEventConfigure,
+  WorkspaceEventEdit,
+  WorkspaceEventRun,
+  WorkspaceEventSubmit,
+  WorkspaceEventSelect,
+  SerializedWorkspace,
+  WorkspaceStateSnapshot,
+} from "./types";
+import { createSnapshot, serializeWorkspace, deserializeWorkspace } from "./serialization";
+
+/**
+ * Store type definition
+ */
+type WorkspaceStoreState = WorkspaceState & {
+  // Actions
+  addNode: (nodeId: string, nodeData: Record<string, unknown>) => void;
+  removeNode: (nodeId: string) => void;
+  connectNodes: (edgeId: string, source: string, target: string) => void;
+  selectNode: (nodeId: string) => void;
+  selectNodes: (nodeIds: string[]) => void;
+  selectEdges: (edgeIds: string[]) => void;
+  clearSelection: () => void;
+  configure: (key: string, value: unknown) => void;
+  edit: (editorId: string, content: string) => void;
+  run: (target: string) => void;
+  submit: (taskId: string, data: Record<string, unknown>) => void;
+  undo: () => void;
+  resetWorkspace: () => void;
+  serializeWorkspace: () => SerializedWorkspace;
+  restoreWorkspace: (serialized: unknown) => void;
+  setNodes: (nodes: WorkspaceNode[]) => void;
+  setEdges: (edges: WorkspaceEdge[]) => void;
+};
+
+const initialState: WorkspaceState = {
+  nodes: [],
+  edges: [],
+  selection: { nodeIds: [], edgeIds: [] },
+  config: {},
+  editors: {},
+  submissions: [],
+  events: [],
+  history: [],
+};
+
+function generateEventId(): string {
+  return "evt_" + Math.random().toString(36).slice(2, 11);
+}
+
+function getCurrentTimestamp(): string {
+  return new Date().toISOString();
+}
+
+export const useWorkspaceStore = create<WorkspaceStoreState>((set, get) => ({
+  ...initialState,
+
+  addNode: (nodeId: string, nodeData: Record<string, unknown>) =>
+    set((state) => {
+      const newNode: WorkspaceNode = {
+        id: nodeId,
+        data: nodeData,
+        position: { x: Math.random() * 200, y: Math.random() * 200 },
+      };
+      const event: WorkspaceEventAdd = {
+        id: generateEventId(),
+        type: "add",
+        timestamp: getCurrentTimestamp(),
+        payload: { nodeId, nodeData },
+      };
+      // Save snapshot before mutation for undo
+      const snapshot = createSnapshot(state);
+      return {
+        nodes: [...state.nodes, newNode],
+        events: [...state.events, event],
+        history: [...state.history, snapshot],
+      };
+    }),
+
+  removeNode: (nodeId: string) =>
+    set((state) => {
+      const event: WorkspaceEventRemove = {
+        id: generateEventId(),
+        type: "remove",
+        timestamp: getCurrentTimestamp(),
+        payload: { nodeId },
+      };
+      // Save snapshot before mutation for undo
+      const snapshot = createSnapshot(state);
+      return {
+        nodes: state.nodes.filter((n) => n.id !== nodeId),
+        edges: state.edges.filter((e) => e.source !== nodeId && e.target !== nodeId),
+        events: [...state.events, event],
+        history: [...state.history, snapshot],
+      };
+    }),
+
+  connectNodes: (edgeId: string, source: string, target: string) =>
+    set((state) => {
+      const newEdge: WorkspaceEdge = { id: edgeId, source, target };
+      const event: WorkspaceEventConnect = {
+        id: generateEventId(),
+        type: "connect",
+        timestamp: getCurrentTimestamp(),
+        payload: { edgeId, source, target },
+      };
+      // Save snapshot before mutation for undo
+      const snapshot = createSnapshot(state);
+      return {
+        edges: [...state.edges, newEdge],
+        events: [...state.events, event],
+        history: [...state.history, snapshot],
+      };
+    }),
+
+  selectNode: (nodeId: string) =>
+    set((state) => ({
+      selection: { nodeIds: [nodeId], edgeIds: [] },
+    })),
+
+  selectNodes: (nodeIds: string[]) =>
+    set((state) => {
+      const event: WorkspaceEventSelect = {
+        id: generateEventId(),
+        type: "select",
+        timestamp: getCurrentTimestamp(),
+        payload: { nodeIds, edgeIds: [] },
+      };
+      return {
+        selection: { nodeIds, edgeIds: [] },
+        events: [...state.events, event],
+      };
+    }),
+
+  selectEdges: (edgeIds: string[]) =>
+    set((state) => ({
+      selection: { nodeIds: [], edgeIds },
+    })),
+
+  clearSelection: () =>
+    set(() => ({
+      selection: { nodeIds: [], edgeIds: [] },
+    })),
+
+  configure: (key: string, value: unknown) =>
+    set((state) => {
+      const event: WorkspaceEventConfigure = {
+        id: generateEventId(),
+        type: "configure",
+        timestamp: getCurrentTimestamp(),
+        payload: { configKey: key, value },
+      };
+      // Save snapshot before mutation for undo
+      const snapshot = createSnapshot(state);
+      return {
+        config: { ...state.config, [key]: value },
+        events: [...state.events, event],
+        history: [...state.history, snapshot],
+      };
+    }),
+
+  edit: (editorId: string, content: string) =>
+    set((state) => {
+      const event: WorkspaceEventEdit = {
+        id: generateEventId(),
+        type: "edit",
+        timestamp: getCurrentTimestamp(),
+        payload: { editorId, content },
+      };
+      // Save snapshot before mutation for undo
+      const snapshot = createSnapshot(state);
+      return {
+        editors: { ...state.editors, [editorId]: content },
+        events: [...state.events, event],
+        history: [...state.history, snapshot],
+      };
+    }),
+
+  run: (target: string) =>
+    set((state) => {
+      const event: WorkspaceEventRun = {
+        id: generateEventId(),
+        type: "run",
+        timestamp: getCurrentTimestamp(),
+        payload: { target },
+      };
+      return {
+        events: [...state.events, event],
+      };
+    }),
+
+  submit: (taskId: string, data: Record<string, unknown>) =>
+    set((state) => {
+      const submission = {
+        taskId,
+        timestamp: getCurrentTimestamp(),
+        payload: data,
+      };
+      const event: WorkspaceEventSubmit = {
+        id: generateEventId(),
+        type: "submit",
+        timestamp: getCurrentTimestamp(),
+        payload: { taskId, data },
+      };
+      return {
+        submissions: [...state.submissions, submission],
+        events: [...state.events, event],
+      };
+    }),
+
+  undo: () =>
+    set((state) => {
+      if (state.history.length === 0) return state;
+      const prev = state.history[state.history.length - 1];
+      // Undo restores state but keeps events intact (full history preserved)
+      return {
+        nodes: prev.nodes,
+        edges: prev.edges,
+        config: prev.config,
+        editors: prev.editors,
+        submissions: prev.submissions,
+        history: state.history.slice(0, -1),
+      };
+    }),
+
+  resetWorkspace: () =>
+    set(() => initialState),
+
+  serializeWorkspace: () => {
+    const state = get();
+    return serializeWorkspace(state);
+  },
+
+  restoreWorkspace: (serialized: unknown) => {
+    const data = deserializeWorkspace(serialized);
+    set(() => ({
+      nodes: data.nodes,
+      edges: data.edges,
+      config: data.config,
+      editors: data.editors,
+      submissions: data.submissions,
+      events: data.events,
+      history: [],
+      selection: { nodeIds: [], edgeIds: [] },
+    }));
+  },
+
+  setNodes: (nodes: WorkspaceNode[]) =>
+    set(() => ({
+      nodes,
+    })),
+
+  setEdges: (edges: WorkspaceEdge[]) =>
+    set(() => ({
+      edges,
+    })),
+}));
