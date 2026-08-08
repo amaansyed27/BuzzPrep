@@ -6,6 +6,7 @@ export default function WorkspaceToolbar() {
   const [showActivity, setShowActivity] = useState(false);
   const events = useWorkspaceStore((s) => s.events);
   const undo = useWorkspaceStore((s) => s.undo);
+  const candidateReset = useWorkspaceStore((s) => s.candidateReset);
   const resetWorkspace = useWorkspaceStore((s) => s.resetWorkspace);
 
   return (
@@ -20,7 +21,7 @@ export default function WorkspaceToolbar() {
           ↶ Undo
         </button>
         <button
-          onClick={() => resetWorkspace()}
+          onClick={() => candidateReset()}
           className="toolbar-action-button"
           title="Reset workspace"
           aria-label="Reset"

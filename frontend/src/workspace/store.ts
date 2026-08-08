@@ -11,11 +11,13 @@ import type {
   WorkspaceEventAdd,
   WorkspaceEventRemove,
   WorkspaceEventConnect,
+  WorkspaceEventDisconnect,
   WorkspaceEventConfigure,
   WorkspaceEventEdit,
   WorkspaceEventRun,
   WorkspaceEventSubmit,
   WorkspaceEventUndo,
+  WorkspaceEventReset,
   SerializedWorkspace,
   WorkspaceStateSnapshot,
 } from "./types";
@@ -29,6 +31,7 @@ type WorkspaceStoreState = WorkspaceState & {
   addNode: (nodeId: string, nodeData: Record<string, unknown>) => void;
   removeNode: (nodeId: string) => void;
   connectNodes: (edgeId: string, source: string, target: string) => void;
+  removeEdge: (edgeId: string) => void;
   configure: (key: string, value: unknown) => void;
   edit: (editorId: string, content: string) => void;
   run: (target: string) => void;
@@ -122,6 +125,23 @@ export const useWorkspaceStore = create<WorkspaceStoreState>((set, get) => ({
       const snapshot = createSnapshot(state);
       return {
         edges: [...state.edges, newEdge],
+        events: [...state.events, event],
+        history: [...state.history, snapshot],
+      };
+    }),
+
+  removeEdge: (edgeId: string) =>
+    set((state) => {
+      const event = ({
+        id: generateEventId(),
+        type: "disconnect",
+        timestamp: getCurrentTimestamp(),
+        payload: { edgeId },
+      } as WorkspaceEvent);
+      // Save snapshot before mutation for undo
+      const snapshot = createSnapshot(state);
+      return {
+        edges: state.edges.filter((e) => e.id !== edgeId),
         events: [...state.events, event],
         history: [...state.history, snapshot],
       };
@@ -248,26 +268,32 @@ export const useWorkspaceStore = create<WorkspaceStoreState>((set, get) => ({
     set((state) => {
       // Preserve events (evidence), reset nodes/edges/editors/submissions to initialSnapshot if present
       const initial = state.initialSnapshot;
+      const resetEvent = (initialSnapshotPresent: boolean): WorkspaceEventReset => ({
+        id: generateEventId(),
+        type: "reset",
+        timestamp: getCurrentTimestamp(),
+        payload: { reason: "candidate_reset", initialSnapshotPresent },
+      });
       if (initial) {
+        // Append exactly one reset event and preserve existing events
         return {
           nodes: initial.nodes,
           edges: initial.edges,
           config: initial.config,
           editors: initial.editors,
           submissions: initial.submissions,
-          // preserve events and history cleared to avoid mismatched snapshots
-          events: state.events,
+          events: [...state.events, resetEvent(true)],
           history: [],
         };
       }
-      // No initial snapshot available - clear state but preserve events
+      // No initial snapshot available - clear state but preserve events, append reset
       return {
         nodes: [],
         edges: [],
         config: {},
         editors: {},
         submissions: [],
-        events: state.events,
+        events: [...state.events, resetEvent(false)],
         history: [],
       };
     }),
@@ -286,9 +312,10 @@ export const useWorkspaceStore = create<WorkspaceStoreState>((set, get) => ({
           history: [],
           initialSnapshot: serialized,
           workspaceActive: true,
+          challengeId: serialized.challengeId ?? undefined,
         };
       }
-      // No snapshot - start empty
+      // No snapshot - start empty and clear any previous challengeId
       return {
         nodes: [],
         edges: [],
@@ -299,6 +326,7 @@ export const useWorkspaceStore = create<WorkspaceStoreState>((set, get) => ({
         history: [],
         initialSnapshot: undefined,
         workspaceActive: true,
+        challengeId: undefined,
       };
     }),
 

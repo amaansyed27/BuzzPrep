@@ -50,6 +50,20 @@ All candidate actions generate structured, discriminated union events:
 
 **Selection changes (selectNode, selectNodes, selectEdges) do NOT generate events.** Selection is UI-only state.
 
+## Reset and Disconnect
+
+- `candidateReset()` restores the workspace to its initial snapshot (if available) or clears the workspace while PRESERVING the full `events[]` history. It appends exactly one `reset` WorkspaceEvent with payload `{ reason: "candidate_reset", initialSnapshotPresent: boolean }` so the reset action itself is auditable.
+
+- `initializeChallenge(serialized?)` and `resetWorkspace()` are hard resets: they clear `events[]` and `history[]` and start a new challenge state. `initializeChallenge()` sets `challengeId` from the provided snapshot; if none provided, `challengeId` is cleared.
+
+- Edge operations:
+  - Creating a connection uses `connectNodes(...)` and emits a `connect` event.
+  - Deleting an edge uses `removeEdge(edgeId)` and emits a `disconnect` event.
+
+## Undo
+
+- `undo()` restores the previous snapshot and emits an explicit `undo` WorkspaceEvent with `payload.restoredToIndex` metadata. Undo events are NOT recursively undoable; undo records are part of `events[]` but are not added to `history[]` as snapshots.
+
 Each event contains:
 - `id` — unique event identifier (prefixed evt_)
 - `type` — machine-readable event type

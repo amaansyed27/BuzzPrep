@@ -30,7 +30,7 @@ export type WorkspaceSubmission = {
 /**
  * Discriminated union for workspace events
  */
-export type WorkspaceEventType = "add" | "remove" | "connect" | "configure" | "edit" | "run" | "submit" | "undo";
+export type WorkspaceEventType = "add" | "remove" | "connect" | "disconnect" | "configure" | "edit" | "run" | "submit" | "undo" | "reset";
 
 export type WorkspaceEventBase = {
   id: string;
@@ -59,6 +59,15 @@ export type WorkspaceEventConnect = WorkspaceEventBase & {
     edgeId: string;
     source: string;
     target: string;
+  };
+};
+
+export type WorkspaceEventDisconnect = WorkspaceEventBase & {
+  type: "disconnect";
+  payload: {
+    edgeId: string;
+    source?: string;
+    target?: string;
   };
 };
 
@@ -101,15 +110,25 @@ export type WorkspaceEventUndo = WorkspaceEventBase & {
   };
 };
 
+export type WorkspaceEventReset = WorkspaceEventBase & {
+  type: "reset";
+  payload: {
+    reason?: string;
+    initialSnapshotPresent: boolean;
+  };
+};
+
 export type WorkspaceEvent =
   | WorkspaceEventAdd
   | WorkspaceEventRemove
   | WorkspaceEventConnect
+  | WorkspaceEventDisconnect
   | WorkspaceEventConfigure
   | WorkspaceEventEdit
   | WorkspaceEventRun
   | WorkspaceEventSubmit
-  | WorkspaceEventUndo;
+  | WorkspaceEventUndo
+  | WorkspaceEventReset;
 
 export type WorkspaceState = {
   nodes: WorkspaceNode[];

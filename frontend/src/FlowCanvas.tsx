@@ -13,6 +13,7 @@ export default function FlowCanvas() {
   const workspaceEdges = useWorkspaceStore((s) => s.edges);
   const workspaceActive = useWorkspaceStore((s) => s.workspaceActive);
   const removeNode = useWorkspaceStore((s) => s.removeNode);
+  const removeEdge = useWorkspaceStore((s) => s.removeEdge);
   const connectNodes = useWorkspaceStore((s) => s.connectNodes);
   const setNodes = useWorkspaceStore((s) => s.setNodes);
   const setEdges = useWorkspaceStore((s) => s.setEdges);
@@ -107,6 +108,20 @@ export default function FlowCanvas() {
     [workspaceActive, removeNode]
   );
 
+  // Handle edge deletion - single mutation path through workspace store
+  const onEdgesDelete = useCallback(
+    (edgesToDelete: typeof edges) => {
+      if (!workspaceActive) {
+        // Demo mode: don't create workspace events
+        return;
+      }
+      edgesToDelete.forEach((edge) => {
+        removeEdge(edge.id);
+      });
+    },
+    [workspaceActive, removeEdge]
+  );
+
   return (
     <section className="panel canvas-panel">
       <div className="panel-heading">
@@ -127,6 +142,7 @@ export default function FlowCanvas() {
           onEdgesChange={onEdgesChange}
           onConnect={onConnect}
           onNodesDelete={onNodesDelete}
+          onEdgesDelete={onEdgesDelete}
           fitView
         >
           <Background color="rgba(255,255,255,0.03)" gap={16} />
