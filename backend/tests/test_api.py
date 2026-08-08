@@ -76,7 +76,9 @@ def test_create_new_session_emits_and_persists_first_question(
     assert session.current_curriculum_day in session.covered_curriculum_days
     assert session.current_topic
     assert session.completion_state["candidateProfile"]["candidate_id"] == "CAND-001"
-    assert len(session.completion_state["interviewPlan"]["plan"]) >= 4
+    plan_days = {area["day"] for area in session.completion_state["interviewPlan"]["plan"]}
+    assert len(plan_days) >= 4
+    assert session.current_curriculum_day in plan_days
     assert [(turn.role, turn.kind) for turn in turns] == [("interviewer", "question")]
 
 
