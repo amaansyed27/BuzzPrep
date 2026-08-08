@@ -129,7 +129,7 @@ def _experience_level(record: CandidateRecord, first_try_rate: float) -> Experie
     if first_try_rate < 0.25:
         return ExperienceLevel.INTRODUCTORY
     if technical_role and (
-        first_try_rate >= 0.8
+        (record.member.years_experience >= 3 and first_try_rate >= 0.8)
         or (record.member.years_experience >= 8 and first_try_rate >= 0.5)
     ):
         return ExperienceLevel.ADVANCED
