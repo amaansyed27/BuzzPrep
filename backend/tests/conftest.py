@@ -6,6 +6,8 @@ from pathlib import Path
 import pytest
 from fastapi.testclient import TestClient
 
+from app.interview.engine import AdaptiveInterviewEngine
+from app.llm.fake import FakeLLMProvider
 from app.main import create_app
 
 
@@ -15,7 +17,15 @@ def database_url(tmp_path: Path) -> str:
 
 
 @pytest.fixture
-def client(database_url: str) -> Iterator[TestClient]:
-    app = create_app(database_url=database_url)
+def fake_provider() -> FakeLLMProvider:
+    return FakeLLMProvider()
+
+
+@pytest.fixture
+def client(database_url: str, fake_provider: FakeLLMProvider) -> Iterator[TestClient]:
+    app = create_app(
+        database_url=database_url,
+        interview_engine=AdaptiveInterviewEngine(fake_provider),
+    )
     with TestClient(app) as test_client:
         yield test_client
