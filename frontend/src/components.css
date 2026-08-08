@@ -1,0 +1,45 @@
+/* Layout */
+.app-shell { min-height: 100vh; padding: 20px; }
+
+.topbar { max-width: 1500px; margin: 0 auto 18px; display:flex; align-items:end; justify-content:space-between; }
+.topbar .eyebrow { text-transform:uppercase; letter-spacing:0.12em; color:var(--accent-amber); font-weight:800; font-size:0.8rem; }
+.topbar h1 { font-weight:700; }
+.topbar-right { display:flex; align-items:center; gap:12px; }
+.status-pill { padding:6px 10px; border-radius:999px; background:rgba(255,255,255,0.03); border:1px solid var(--border); font-weight:700; }
+.status-pill.connected { background: linear-gradient(90deg, rgba(226,163,0,0.12), rgba(38,198,218,0.06)); }
+.session-id { font-size:0.85rem; color:var(--muted-200); }
+
+.workspace-grid { max-width:1500px; margin:0 auto; display:grid; grid-template-columns: minmax(220px, 0.72fr) minmax(500px,1.8fr) minmax(280px,0.95fr); gap:12px; min-height: calc(100vh - 130px); }
+
+.panel { background: linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.01)); border: 1px solid var(--border); box-shadow: var(--shadow-1); overflow:hidden; }
+
+/* Candidate */
+.candidate-panel { padding:18px; display:flex; flex-direction:column; gap:14px; }
+.session-meta { display:grid; gap:8px; margin-top:8px; }
+.session-meta div { display:flex; justify-content:space-between; border-bottom:1px solid rgba(255,255,255,0.02); padding-bottom:8px; }
+.primary-button { margin-top:auto; display:inline-flex; align-items:center; gap:8px; border:0; background:var(--panel-800); color:var(--text-100); padding:10px 12px; border-radius:6px; }
+.primary-button:disabled { opacity:0.5; cursor:not-allowed; }
+
+/* Canvas */
+.canvas-panel { display:grid; grid-template-rows:auto 1fr; min-height:620px; }
+.panel-heading { min-height:66px; padding:14px 18px; display:flex; align-items:center; justify-content:space-between; border-bottom:1px solid rgba(255,255,255,0.02); }
+.flow-wrap { min-height:520px; background: linear-gradient(180deg, rgba(255,255,255,0.01), rgba(255,255,255,0.005)); }
+.react-flow__node { border:1px solid rgba(255,255,255,0.06) !important; background: linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.01)) !important; border-radius:6px !important; padding:8px !important; font-weight:700; color:var(--text-100) !important; }
+
+/* Chat */
+.chat-panel { display:grid; grid-template-rows:auto 1fr auto; padding:0; min-height:620px; }
+.messages { padding:16px; overflow-y:auto; display:flex; flex-direction:column; gap:10px; }
+.message { padding:10px 12px; border:1px solid rgba(255,255,255,0.03); background: rgba(255,255,255,0.01); border-radius:6px; }
+.message.candidate { margin-left:18px; background: rgba(228,197,80,0.06); border-color: rgba(226,163,0,0.12); }
+.chat-form { display:grid; grid-template-columns:1fr auto; gap:8px; padding:14px; border-top:1px solid rgba(255,255,255,0.02); }
+.chat-form input { width:100%; border:1px solid rgba(255,255,255,0.03); background:transparent; padding:10px; border-radius:6px; color:var(--text-100); }
+.chat-form input:focus { outline:2px solid rgba(38,198,218,0.12); }
+.chat-form button { width:44px; border:0; background:var(--accent-amber); color:#0b0b0c; display:grid; place-items:center; border-radius:6px; }
+
+/* Busy overlay & errors */
+.busy-overlay { position:relative; padding:8px; text-align:center; background:rgba(0,0,0,0.3); color:var(--text-100); }
+.error-banner { padding:10px; background: rgba(180,40,40,0.12); color:#ffd5d5; margin:8px; border-radius:6px; }
+
+/* Responsive */
+@media (max-width: 1100px) { .workspace-grid { grid-template-columns: 1fr 1fr; } .canvas-panel { grid-column:1 / -1; grid-row:1; } }
+@media (max-width:760px) { .workspace-grid { grid-template-columns:1fr; } .canvas-panel { grid-column:auto; } }
