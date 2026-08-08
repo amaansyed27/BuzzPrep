@@ -122,6 +122,7 @@ export type WorkspaceState = {
   history: WorkspaceStateSnapshot[]; // for undo
   workspaceActive: boolean; // explicit flag: is a workspace currently active?
   challengeId?: string; // optional identifier for the current challenge/task
+  initialSnapshot?: SerializedWorkspace; // stored initial snapshot for candidate resets
 };
 
 export type WorkspaceStateSnapshot = {

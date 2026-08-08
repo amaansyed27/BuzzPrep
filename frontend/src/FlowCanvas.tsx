@@ -16,6 +16,8 @@ export default function FlowCanvas() {
   const connectNodes = useWorkspaceStore((s) => s.connectNodes);
   const setNodes = useWorkspaceStore((s) => s.setNodes);
   const setEdges = useWorkspaceStore((s) => s.setEdges);
+  const selection = useWorkspaceStore((s) => s.selection);
+  const setSelection = useWorkspaceStore((s) => s.setSelection);
 
   // Use workspace nodes/edges if workspace is active, otherwise fall back to interview store (demo mode)
   const nodes = workspaceActive ? workspaceNodes : interviewNodes;
@@ -34,8 +36,20 @@ export default function FlowCanvas() {
       if (workspaceActive) {
         setNodes(updated);
       }
+
+      // Synchronize selection into workspace store (UI-only)
+      const selectedNodeIds = updated.filter((n: any) => n.selected).map((n: any) => n.id);
+      const selectedEdgeIds = edges.filter((e: any) => e.selected).map((e: any) => e.id);
+      const sameSelection =
+        selection.nodeIds.length === selectedNodeIds.length &&
+        selection.edgeIds.length === selectedEdgeIds.length &&
+        selection.nodeIds.every((id) => selectedNodeIds.includes(id)) &&
+        selection.edgeIds.every((id) => selectedEdgeIds.includes(id));
+      if (!sameSelection) {
+        setSelection(selectedNodeIds, selectedEdgeIds);
+      }
     },
-    [nodes, workspaceActive, setNodes]
+    [nodes, workspaceActive, setNodes, edges, selection, setSelection]
   );
 
   const onEdgesChange = useCallback(
@@ -48,8 +62,20 @@ export default function FlowCanvas() {
       if (workspaceActive) {
         setEdges(updated);
       }
+
+      // Synchronize selection into workspace store (UI-only)
+      const selectedEdgeIds = updated.filter((e: any) => e.selected).map((e: any) => e.id);
+      const selectedNodeIds = nodes.filter((n: any) => n.selected).map((n: any) => n.id);
+      const sameSelection =
+        selection.nodeIds.length === selectedNodeIds.length &&
+        selection.edgeIds.length === selectedEdgeIds.length &&
+        selection.nodeIds.every((id) => selectedNodeIds.includes(id)) &&
+        selection.edgeIds.every((id) => selectedEdgeIds.includes(id));
+      if (!sameSelection) {
+        setSelection(selectedNodeIds, selectedEdgeIds);
+      }
     },
-    [edges, workspaceActive, setEdges]
+    [edges, workspaceActive, setEdges, nodes, selection, setSelection]
   );
 
   // Handle new connections - single mutation path through workspace store

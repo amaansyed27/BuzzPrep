@@ -34,8 +34,10 @@ type WorkspaceStoreState = WorkspaceState & {
   run: (target: string) => void;
   submit: (taskId: string, data: Record<string, unknown>) => void;
   undo: () => void;
-  resetWorkspace: () => void;
-  setWorkspaceActive: (active: boolean, challengeId?: string) => void;
+  resetWorkspace: () => void; // hard reset, clears events
+  candidateReset: () => void; // resets workspace but preserves events
+  initializeChallenge: (serialized?: SerializedWorkspace) => void; // hard initialize with optional snapshot
+  setWorkspaceActive: (active: boolean, challengeId?: string, initialSnapshot?: SerializedWorkspace) => void;
   serializeWorkspace: () => SerializedWorkspace;
   restoreWorkspace: (serialized: unknown) => void;
   setNodes: (nodes: WorkspaceNode[]) => void;
@@ -242,10 +244,69 @@ export const useWorkspaceStore = create<WorkspaceStoreState>((set, get) => ({
   resetWorkspace: () =>
     set(() => initialState),
 
-  setWorkspaceActive: (active: boolean, challengeId?: string) =>
+  candidateReset: () =>
+    set((state) => {
+      // Preserve events (evidence), reset nodes/edges/editors/submissions to initialSnapshot if present
+      const initial = state.initialSnapshot;
+      if (initial) {
+        return {
+          nodes: initial.nodes,
+          edges: initial.edges,
+          config: initial.config,
+          editors: initial.editors,
+          submissions: initial.submissions,
+          // preserve events and history cleared to avoid mismatched snapshots
+          events: state.events,
+          history: [],
+        };
+      }
+      // No initial snapshot available - clear state but preserve events
+      return {
+        nodes: [],
+        edges: [],
+        config: {},
+        editors: {},
+        submissions: [],
+        events: state.events,
+        history: [],
+      };
+    }),
+
+  initializeChallenge: (serialized?: SerializedWorkspace) =>
+    set((state) => {
+      // Hard initialize: set provided snapshot (if any) and clear events/history
+      if (serialized) {
+        return {
+          nodes: serialized.nodes,
+          edges: serialized.edges,
+          config: serialized.config,
+          editors: serialized.editors,
+          submissions: serialized.submissions,
+          events: [],
+          history: [],
+          initialSnapshot: serialized,
+          workspaceActive: true,
+        };
+      }
+      // No snapshot - start empty
+      return {
+        nodes: [],
+        edges: [],
+        config: {},
+        editors: {},
+        submissions: [],
+        events: [],
+        history: [],
+        initialSnapshot: undefined,
+        workspaceActive: true,
+      };
+    }),
+
+  setWorkspaceActive: (active: boolean, challengeId?: string, initialSnapshot?: SerializedWorkspace) =>
     set(() => ({
       workspaceActive: active,
       challengeId: active ? challengeId : undefined,
+      initialSnapshot: initialSnapshot ?? undefined,
     })),
 
   serializeWorkspace: () => {

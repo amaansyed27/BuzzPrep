@@ -88,14 +88,16 @@ Selection changes are transient UI state and do not generate workspace events.
 ### Other Actions
 
 ```typescript
-resetWorkspace() → void
-setWorkspaceActive(active: boolean, challengeId?: string) → void
+resetWorkspace() → void // Hard reset: clears all state including events (admin/hard init)
+candidateReset() → void // Candidate-facing reset: restores initial challenge state but preserves events
+initializeChallenge(serialized?: SerializedWorkspace) → void // Hard initialize a challenge with optional snapshot and clears events
+setWorkspaceActive(active: boolean, challengeId?: string, initialSnapshot?: SerializedWorkspace) → void
 serializeWorkspace() → SerializedWorkspace
 restoreWorkspace(serialized: unknown) → void
 setNodes(nodes: WorkspaceNode[]) → void
 setEdges(edges: WorkspaceEdge[]) → void
-```
-useWorkspaceStore.getState().addNode("node-1", { label: "Input" });
+setSelection(nodeIds: string[], edgeIds: string[]) → void // UI-only selection sync
+```useWorkspaceStore.getState().addNode("node-1", { label: "Input" });
 
 // Connect
 useWorkspaceStore.getState().connectNodes("edge-1", "node-1", "node-2");
