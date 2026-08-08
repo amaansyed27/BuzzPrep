@@ -127,6 +127,7 @@ def test_selected_days_are_grounded_in_curriculum() -> None:
         for area in plan.plan:
             source_day = catalog.day(area.day)
             assert area.topic == source_day.title
+            assert area.activity_type == source_day.activity_type
             assert area.objectives == source_day.objectives
             assert area.tools == source_day.tools
 
