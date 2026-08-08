@@ -9,6 +9,7 @@ from sqlalchemy.orm import Session
 
 from app.models.interview import InterviewSession, InterviewTurn
 from app.schemas.interview import Feedback, InterviewResponse
+from app.schemas.workspace import SerializedWorkspace
 from app.services.interviewer import InterviewEngine, InterviewEngineResult, InterviewStatePatch
 
 
@@ -106,7 +107,12 @@ class InterviewSessionService:
         self.repository = repository
         self.engine = engine
 
-    def start(self, session_id: str, candidate: dict[str, Any]) -> InterviewResponse:
+    def start(
+        self,
+        session_id: str,
+        candidate: dict[str, Any],
+        workspace: SerializedWorkspace | None = None,
+    ) -> InterviewResponse:
         if self.repository.get(session_id) is not None:
             raise SessionAlreadyExistsError(f"Session '{session_id}' already exists")
 
@@ -118,45 +124,74 @@ class InterviewSessionService:
             self.repository.rollback()
             raise SessionAlreadyExistsError(f"Session '{session_id}' already exists") from exc
 
-        result = self.engine.start(session)
-        self._apply_engine_result(session, result)
-        self.repository.add_turn(
-            session_id,
-            role="interviewer",
-            kind=result.turn_kind,
-            content=result.reply,
-        )
-
         try:
+            result = (
+                self.engine.start(session, workspace=workspace)
+                if workspace is not None
+                else self.engine.start(session)
+            )
+            self._apply_engine_result(session, result)
+            self.repository.add_turn(
+                session_id,
+                role="interviewer",
+                kind=result.turn_kind,
+                content=result.reply,
+                payload=result.turn_payload,
+            )
             self.repository.commit()
-        except IntegrityError as exc:
+        except Exception:
             self.repository.rollback()
-            raise SessionAlreadyExistsError(f"Session '{session_id}' already exists") from exc
+            raise
 
         self.repository.refresh(session)
         return self._to_response(result)
 
-    def continue_session(self, session_id: str, message: str) -> InterviewResponse:
+    def continue_session(
+        self,
+        session_id: str,
+        message: str,
+        workspace: SerializedWorkspace | None = None,
+    ) -> InterviewResponse:
         session = self.repository.get(session_id)
         if session is None:
             raise SessionNotFoundError(f"Session '{session_id}' does not exist")
         if session.status == "completed":
             raise SessionCompletedError(f"Session '{session_id}' is already completed")
 
-        self.repository.add_turn(session_id, role="candidate", content=message)
-        session.turn_count += 1
-        session.updated_at = utcnow()
-
-        conversation = self.repository.list_turns(session_id)
-        result = self.engine.respond(session, message, conversation)
-        self._apply_engine_result(session, result)
-        self.repository.add_turn(
-            session_id,
-            role="interviewer",
-            kind=result.turn_kind,
-            content=result.reply,
+        candidate_payload = (
+            {"workspace": workspace.model_dump(mode="json", by_alias=True, exclude_none=True)}
+            if workspace is not None
+            else None
         )
-        self.repository.commit()
+        try:
+            self.repository.add_turn(
+                session_id,
+                role="candidate",
+                content=message,
+                payload=candidate_payload,
+            )
+            session.turn_count += 1
+            session.updated_at = utcnow()
+
+            conversation = self.repository.list_turns(session_id)
+            result = (
+                self.engine.respond(session, message, conversation, workspace=workspace)
+                if workspace is not None
+                else self.engine.respond(session, message, conversation)
+            )
+            self._apply_engine_result(session, result)
+            self.repository.add_turn(
+                session_id,
+                role="interviewer",
+                kind=result.turn_kind,
+                content=result.reply,
+                payload=result.turn_payload,
+            )
+            self.repository.commit()
+        except Exception:
+            self.repository.rollback()
+            raise
+
         self.repository.refresh(session)
         return self._to_response(result)
 
