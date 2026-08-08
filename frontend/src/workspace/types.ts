@@ -30,7 +30,17 @@ export type WorkspaceSubmission = {
 /**
  * Discriminated union for workspace events
  */
-export type WorkspaceEventType = "add" | "remove" | "connect" | "disconnect" | "configure" | "edit" | "run" | "submit" | "undo" | "reset";
+export type WorkspaceEventType =
+  | "add"
+  | "remove"
+  | "connect"
+  | "disconnect"
+  | "configure"
+  | "edit"
+  | "run"
+  | "submit"
+  | "undo"
+  | "reset";
 
 export type WorkspaceEventBase = {
   id: string;
@@ -130,6 +140,19 @@ export type WorkspaceEvent =
   | WorkspaceEventUndo
   | WorkspaceEventReset;
 
+/**
+ * Immutable challenge baseline used by candidateReset(). It intentionally omits
+ * event/history/UI state so serializing it cannot recursively embed a workspace.
+ */
+export type WorkspaceResetBaseline = {
+  nodes: WorkspaceNode[];
+  edges: WorkspaceEdge[];
+  config: WorkspaceConfig;
+  editors: WorkspaceEditor;
+  submissions: WorkspaceSubmission[];
+  challengeId?: string;
+};
+
 export type WorkspaceState = {
   nodes: WorkspaceNode[];
   edges: WorkspaceEdge[];
@@ -141,7 +164,7 @@ export type WorkspaceState = {
   history: WorkspaceStateSnapshot[]; // for undo
   workspaceActive: boolean; // explicit flag: is a workspace currently active?
   challengeId?: string; // optional identifier for the current challenge/task
-  initialSnapshot?: SerializedWorkspace; // stored initial snapshot for candidate resets
+  initialSnapshot?: WorkspaceResetBaseline; // reset baseline that survives serialize/restore
 };
 
 export type WorkspaceStateSnapshot = {
@@ -161,4 +184,5 @@ export type SerializedWorkspace = {
   events: WorkspaceEvent[];
   workspaceActive: boolean;
   challengeId?: string;
+  initialSnapshot?: WorkspaceResetBaseline;
 };
