@@ -44,3 +44,6 @@ Desktop.ini
 .cache/
 tmp/
 temp/
+*.db
+*.sqlite
+*.sqlite3
