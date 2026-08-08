@@ -45,7 +45,11 @@ def difficulty_for(profile: CandidateProfile, mission: MissionSignal | None) -> 
         return Difficulty.STANDARD
     if profile.experience_level is ExperienceLevel.ADVANCED:
         return Difficulty.ADVANCED
-    if profile.technical_role and profile.first_try_rate >= 0.75:
+    if (
+        profile.technical_role
+        and profile.years_experience >= 3
+        and profile.first_try_rate >= 0.75
+    ):
         return Difficulty.ADVANCED
     return Difficulty.STANDARD
 
