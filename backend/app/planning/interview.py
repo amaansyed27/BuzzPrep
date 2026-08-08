@@ -1,126 +1,21 @@
 from __future__ import annotations
 
-from enum import StrEnum
-
-from pydantic import BaseModel, ConfigDict, Field
-
-from app.curriculum.models import CurriculumCatalog, CurriculumDay
-from app.planning.interactions import InteractionType, interactions_for_day
-from app.profiling.candidate import (
-    CandidateProfile,
-    ExperienceLevel,
-    MissionSignal,
-    MissionState,
+from app.curriculum.models import CurriculumCatalog
+from app.planning.interactions import interactions_for_day
+from app.planning.models import (
+    MINIMUM_DAYS,
+    MINIMUM_QUESTIONS,
+    QUESTIONS_PER_AREA,
+    Difficulty,
+    InterviewPlan,
+    PlanIntent,
+    PlannedArea,
+    PlannerProfileSummary,
 )
+from app.planning.rules import difficulty_for, intent_for, preferred_modules, reason_selected
+from app.profiling.candidate import CandidateProfile, MissionSignal, MissionState
 
-MINIMUM_DAYS = 4
-MINIMUM_QUESTIONS = 8
-QUESTIONS_PER_AREA = 2
-
-
-class PlanIntent(StrEnum):
-    ASSESSMENT = "assessment"
-    DIAGNOSTIC = "diagnostic"
-    GAP_CHECK = "gap_check"
-    EXPLORATORY = "exploratory"
-
-
-class Difficulty(StrEnum):
-    INTRODUCTORY = "introductory"
-    STANDARD = "standard"
-    ADVANCED = "advanced"
-
-
-class PlannerProfileSummary(BaseModel):
-    model_config = ConfigDict(populate_by_name=True)
-
-    experience_level: ExperienceLevel = Field(alias="experienceLevel")
-    strong_days: list[int] = Field(alias="strongDays")
-    weaker_days: list[int] = Field(alias="weakerDays")
-    failed_days: list[int] = Field(alias="failedDays")
-    skipped_days: list[int] = Field(alias="skippedDays")
-    first_try_rate: float = Field(alias="firstTryRate")
-    commit_days: int = Field(alias="commitDays")
-
-
-class PlannedArea(BaseModel):
-    model_config = ConfigDict(populate_by_name=True)
-
-    day: int = Field(ge=1, le=31)
-    module: str
-    topic: str
-    intent: PlanIntent
-    difficulty: Difficulty
-    objectives: list[str]
-    tools: list[str]
-    interaction_types: list[InteractionType] = Field(alias="interactionTypes", min_length=1)
-    evidence_to_look_for: list[str] = Field(alias="evidenceToLookFor", min_length=1)
-    reason_selected: str = Field(alias="reasonSelected", min_length=1)
-    question_budget: int = Field(default=QUESTIONS_PER_AREA, alias="questionBudget", ge=1)
-
-
-class InterviewPlan(BaseModel):
-    model_config = ConfigDict(populate_by_name=True)
-
-    candidate_id: str = Field(alias="candidateId")
-    profile: PlannerProfileSummary
-    plan: list[PlannedArea] = Field(min_length=MINIMUM_DAYS)
-    minimum_questions: int = Field(
-        default=MINIMUM_QUESTIONS, alias="minimumQuestions", ge=MINIMUM_QUESTIONS
-    )
-    minimum_days: int = Field(default=MINIMUM_DAYS, alias="minimumDays", ge=MINIMUM_DAYS)
-    planned_questions: int = Field(alias="plannedQuestions", ge=MINIMUM_QUESTIONS)
-
-
-_ROLE_MODULE_RULES: tuple[tuple[tuple[str, ...], tuple[int, ...]], ...] = (
-    (("devops", "site reliability", "cloud"), (7, 8, 5)),
-    (("data",), (2, 3, 4, 7, 8)),
-    (("ai engineer", "machine learning", "ml engineer"), (3, 4, 6, 7, 8)),
-    (("architect", "distinguished", "principal"), (6, 7, 8, 5)),
-    (("intern", "junior"), (1, 2, 3, 4, 5)),
-    (("backend", "software engineer", "developer", "legacy systems"), (5, 6, 7, 8, 3)),
-    (("business", "marketing", "human resources", "hr manager", "ux"), (1, 2, 4, 5)),
-    (("it support",), (1, 5, 7, 8)),
-)
-
-
-def _preferred_modules(job_role: str) -> tuple[int, ...]:
-    normalized = job_role.lower()
-    for terms, modules in _ROLE_MODULE_RULES:
-        if any(term in normalized for term in terms):
-            return modules
-    return ()
-
-
-def _difficulty(profile: CandidateProfile, mission: MissionSignal | None) -> Difficulty:
-    if mission is None or mission.state is not MissionState.PASSED:
-        return Difficulty.INTRODUCTORY
-    if mission.attempts >= 4:
-        return Difficulty.INTRODUCTORY
-    if (
-        profile.experience_level is ExperienceLevel.INTRODUCTORY
-        and mission.attempts >= 2
-    ):
-        return Difficulty.INTRODUCTORY
-    if profile.years_experience <= 1 and mission.attempts >= 2:
-        return Difficulty.INTRODUCTORY
-    if mission.attempts >= 2:
-        return Difficulty.STANDARD
-    if profile.experience_level is ExperienceLevel.ADVANCED:
-        return Difficulty.ADVANCED
-    if profile.technical_role and profile.first_try_rate >= 0.75:
-        return Difficulty.ADVANCED
-    return Difficulty.STANDARD
-
-
-def _intent(mission: MissionSignal | None) -> PlanIntent:
-    if mission is None:
-        return PlanIntent.EXPLORATORY
-    if mission.state is MissionState.PASSED:
-        return PlanIntent.ASSESSMENT
-    if mission.state is MissionState.FAILED:
-        return PlanIntent.DIAGNOSTIC
-    return PlanIntent.GAP_CHECK
+__all__ = ["Difficulty", "InterviewPlan", "PlanIntent", "build_interview_plan"]
 
 
 def _signal_rank(signal: MissionSignal) -> tuple[int, int]:
@@ -135,17 +30,17 @@ def _pick_best(
     candidates: list[MissionSignal],
     catalog: CurriculumCatalog,
     selected: list[MissionSignal],
-    preferred_modules: tuple[int, ...],
+    preferred: tuple[int, ...],
 ) -> MissionSignal | None:
     if not candidates:
         return None
     selected_modules = {catalog.day(signal.day).module_number for signal in selected}
-    preferred = set(preferred_modules)
+    preferred_set = set(preferred)
     return min(
         candidates,
         key=lambda signal: (
             catalog.day(signal.day).module_number in selected_modules,
-            catalog.day(signal.day).module_number not in preferred,
+            catalog.day(signal.day).module_number not in preferred_set,
             _signal_rank(signal),
             -signal.day,
         ),
@@ -161,31 +56,31 @@ def _select_passed_days(
     if len(passed) <= target_days:
         return sorted(passed, key=lambda signal: signal.day)
 
-    preferred_modules = _preferred_modules(profile.job_role)
+    preferred = preferred_modules(profile.job_role)
     selected: list[MissionSignal] = []
 
     weak = [signal for signal in passed if signal.attempts >= 3]
-    weak_pick = _pick_best(weak, catalog, selected, preferred_modules)
+    weak_pick = _pick_best(weak, catalog, selected, preferred)
     if weak_pick is not None:
         selected.append(weak_pick)
 
     strong = [signal for signal in passed if signal.attempts == 1 and signal not in selected]
-    strong_pick = _pick_best(strong, catalog, selected, preferred_modules)
+    strong_pick = _pick_best(strong, catalog, selected, preferred)
     if strong_pick is not None and len(selected) < target_days:
         selected.append(strong_pick)
 
     role_relevant = [
         signal
         for signal in passed
-        if signal not in selected and catalog.day(signal.day).module_number in preferred_modules
+        if signal not in selected and catalog.day(signal.day).module_number in preferred
     ]
-    role_pick = _pick_best(role_relevant, catalog, selected, preferred_modules)
+    role_pick = _pick_best(role_relevant, catalog, selected, preferred)
     if role_pick is not None and len(selected) < target_days:
         selected.append(role_pick)
 
     while len(selected) < target_days:
         remaining = [signal for signal in passed if signal not in selected]
-        pick = _pick_best(remaining, catalog, selected, preferred_modules)
+        pick = _pick_best(remaining, catalog, selected, preferred)
         if pick is None:
             break
         selected.append(pick)
@@ -203,7 +98,7 @@ def _fallback_selections(
         (signal.day, signal) for signal in selected
     ]
     chosen_days = {signal.day for signal in selected}
-    preferred_modules = _preferred_modules(profile.job_role)
+    preferred = preferred_modules(profile.job_role)
 
     for state in (MissionState.FAILED, MissionState.SKIPPED):
         while len(chosen) < target_days:
@@ -213,7 +108,7 @@ def _fallback_selections(
                 if signal.state is state and signal.day not in chosen_days
             ]
             picked_signals = [signal for _, signal in chosen if signal is not None]
-            pick = _pick_best(state_candidates, catalog, picked_signals, preferred_modules)
+            pick = _pick_best(state_candidates, catalog, picked_signals, preferred)
             if pick is None:
                 break
             chosen.append((pick.day, pick))
@@ -245,61 +140,6 @@ def _fallback_selections(
     return chosen
 
 
-def _reason_selected(
-    profile: CandidateProfile,
-    curriculum_day: CurriculumDay,
-    mission: MissionSignal | None,
-    selected_modules: set[int],
-) -> str:
-    breadth_note = (
-        " It adds module breadth to the interview."
-        if curriculum_day.module_number not in selected_modules
-        else ""
-    )
-    preferred = curriculum_day.module_number in _preferred_modules(profile.job_role)
-    role_note = (
-        f" It is relevant to the candidate's {profile.job_role} background."
-        if preferred
-        else ""
-    )
-
-    if mission is None:
-        return (
-            "Selected as an early-curriculum exploratory area because too few mission "
-            "states were available." + breadth_note
-        )
-    if mission.state is MissionState.FAILED:
-        return (
-            f"Selected as a diagnostic gap check after {mission.attempts} unsuccessful attempts."
-            + breadth_note
-            + role_note
-        )
-    if mission.state is MissionState.SKIPPED:
-        return (
-            "Selected only as a gap check; the candidate did not complete this mission."
-            + breadth_note
-            + role_note
-        )
-    if mission.attempts == 1:
-        return (
-            "Selected as a demonstrated first-try strength for deeper verification."
-            + breadth_note
-            + role_note
-        )
-    if mission.attempts >= 3:
-        return (
-            f"Selected because the candidate passed after {mission.attempts} attempts, "
-            "making it useful for a deeper probe."
-            + breadth_note
-            + role_note
-        )
-    return (
-        f"Selected as demonstrated completed material after {mission.attempts} attempts."
-        + breadth_note
-        + role_note
-    )
-
-
 def build_interview_plan(
     profile: CandidateProfile,
     catalog: CurriculumCatalog,
@@ -320,7 +160,7 @@ def build_interview_plan(
     planned_areas: list[PlannedArea] = []
     for day_number, mission in selected_entries[:target_days]:
         curriculum_day = catalog.day(day_number)
-        reason = _reason_selected(profile, curriculum_day, mission, selected_modules)
+        reason = reason_selected(profile, curriculum_day, mission, selected_modules)
         selected_modules.add(curriculum_day.module_number)
         evidence = [f"Demonstrates: {objective}" for objective in curriculum_day.objectives[:3]]
         planned_areas.append(
@@ -328,8 +168,9 @@ def build_interview_plan(
                 day=curriculum_day.day,
                 module=curriculum_day.module,
                 topic=curriculum_day.title,
-                intent=_intent(mission),
-                difficulty=_difficulty(profile, mission),
+                activity_type=curriculum_day.activity_type,
+                intent=intent_for(mission),
+                difficulty=difficulty_for(profile, mission),
                 objectives=curriculum_day.objectives,
                 tools=curriculum_day.tools,
                 interaction_types=interactions_for_day(curriculum_day.day),
