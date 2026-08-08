@@ -11,7 +11,9 @@ from fastapi.responses import JSONResponse
 
 from app.api.interview import router as interview_router
 from app.db.database import Database
-from app.services.interviewer import InterviewEngine, PlaceholderInterviewEngine
+from app.interview.engine import AdaptiveInterviewEngine
+from app.llm.factory import build_llm_provider
+from app.services.interviewer import InterviewEngine, InterviewEngineError
 from app.services.session import InterviewSessionError
 
 
@@ -34,7 +36,7 @@ def create_app(
     interview_engine: InterviewEngine | None = None,
 ) -> FastAPI:
     database = Database(database_url)
-    engine = interview_engine or PlaceholderInterviewEngine()
+    engine = interview_engine or AdaptiveInterviewEngine(build_llm_provider())
 
     @asynccontextmanager
     async def lifespan(app: FastAPI) -> AsyncIterator[None]:
@@ -42,7 +44,7 @@ def create_app(
         yield
         database.dispose()
 
-    application = FastAPI(title="BuzzPrep API", version="0.2.0", lifespan=lifespan)
+    application = FastAPI(title="BuzzPrep API", version="0.3.0", lifespan=lifespan)
     application.state.database = database
     application.state.interview_engine = engine
 
@@ -72,6 +74,15 @@ def create_app(
     @application.exception_handler(InterviewSessionError)
     async def interview_session_error_handler(
         request: Request, exc: InterviewSessionError
+    ) -> JSONResponse:
+        return JSONResponse(
+            status_code=exc.status_code,
+            content={"error": {"code": exc.code, "message": exc.message}},
+        )
+
+    @application.exception_handler(InterviewEngineError)
+    async def interview_engine_error_handler(
+        request: Request, exc: InterviewEngineError
     ) -> JSONResponse:
         return JSONResponse(
             status_code=exc.status_code,
