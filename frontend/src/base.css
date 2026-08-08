@@ -1,0 +1,19 @@
+@import './tokens.css';
+
+* { box-sizing: border-box; }
+html, body, #root { height: 100%; }
+body {
+  margin: 0;
+  font-family: var(--font-sans);
+  background: linear-gradient(180deg, var(--bg-900) 0%, #0f1112 100%);
+  color: var(--text-100);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+h1 { margin: 0; font-size: 1.6rem; }
+h2 { margin: 0; font-size: 1.05rem; }
+
+.panel { border-radius: var(--radius); }
+
+.muted { color: var(--muted-200); }
