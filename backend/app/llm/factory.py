@@ -15,7 +15,12 @@ def build_llm_provider(
 ) -> LLMProvider:
     """Build the configured provider without coupling interview graph code to a vendor."""
     name = (provider_name if provider_name is not None else os.getenv("LLM_PROVIDER", "")).strip()
-    normalized = name.lower() or "fake"
+    normalized = name.lower()
+
+    if not normalized:
+        raise LLMConfigurationError(
+            "LLM_PROVIDER is required; use 'gemini' for normal runs or explicitly set 'fake'"
+        )
 
     if normalized == "fake":
         return FakeLLMProvider()

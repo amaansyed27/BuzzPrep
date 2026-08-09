@@ -1,10 +1,13 @@
 from __future__ import annotations
 
+import os
 from collections.abc import Iterator
 from pathlib import Path
 
 import pytest
 from fastapi.testclient import TestClient
+
+os.environ.setdefault("LLM_PROVIDER", "fake")
 
 from app.interview.engine import AdaptiveInterviewEngine
 from app.llm.fake import FakeLLMProvider

@@ -1,8 +1,11 @@
 from __future__ import annotations
 
+import json
+import logging
 from pathlib import Path
 
 import httpx
+import pytest
 from fastapi.testclient import TestClient
 
 from app.db.database import Database
@@ -10,13 +13,16 @@ from app.interview.engine import AdaptiveInterviewEngine, completion_eligible
 from app.interview.models import (
     AdaptiveAction,
     AdaptiveDecision,
+    FinalFeedbackOutput,
     GeneratedInterviewQuestion,
+    TurnEvaluation,
 )
+from app.llm.base import LLMProviderError
 from app.llm.fake import FakeLLMProvider
-from app.llm.gemini import GeminiLLMProvider
+from app.llm.gemini import GeminiLLMProvider, normalize_gemini_schema
 from app.main import create_app
-from app.services.session import InterviewSessionRepository
 from app.profiling.loader import load_candidates
+from app.services.session import InterviewSessionRepository
 
 
 def candidate(candidate_id: str) -> dict:
@@ -346,3 +352,115 @@ def test_gemini_adapter_sends_json_schema_and_validates_response() -> None:
     response_format = captured["generationConfig"]["responseFormat"]["text"]
     assert response_format["mimeType"] == "application/json"
     assert response_format["schema"]["type"] == "object"
+    serialized_schema = json.dumps(response_format["schema"])
+    assert "minLength" not in serialized_schema
+    assert "default" not in serialized_schema
+
+
+@pytest.mark.parametrize(
+    "output_schema",
+    [GeneratedInterviewQuestion, TurnEvaluation, AdaptiveDecision, FinalFeedbackOutput],
+)
+def test_gemini_schema_normalizer_supports_every_interview_task(output_schema: type) -> None:
+    schema = normalize_gemini_schema(output_schema.model_json_schema())
+    serialized = json.dumps(schema)
+
+    assert schema["type"] == "object"
+    assert schema["properties"]
+    assert "minLength" not in serialized
+    assert "default" not in serialized
+
+
+def test_gemini_adapter_logs_sanitized_4xx_diagnostics_without_retry(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    secret = "test-super-secret-key"
+    requests = 0
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        nonlocal requests
+        requests += 1
+        return httpx.Response(
+            400,
+            request=request,
+            json={
+                "error": {
+                    "code": 400,
+                    "status": "INVALID_ARGUMENT",
+                    "message": f"Schema rejected; key={secret}",
+                    "api_key": secret,
+                }
+            },
+        )
+
+    with httpx.Client(transport=httpx.MockTransport(handler)) as http_client:
+        provider = GeminiLLMProvider(
+            api_key=secret,
+            model="gemini-test-model",
+            client=http_client,
+            max_attempts=2,
+        )
+        with caplog.at_level(logging.WARNING), pytest.raises(LLMProviderError):
+            provider.generate_structured(
+                task="generate_question",
+                system_prompt="system",
+                context={},
+                output_schema=GeneratedInterviewQuestion,
+            )
+
+    assert requests == 1
+    assert "status=400" in caplog.text
+    assert "INVALID_ARGUMENT" in caplog.text
+    assert secret not in caplog.text
+    assert "<redacted>" in caplog.text
+
+
+def test_gemini_adapter_retries_transient_provider_failure() -> None:
+    requests = 0
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        nonlocal requests
+        requests += 1
+        if requests == 1:
+            return httpx.Response(
+                503,
+                request=request,
+                json={"error": {"code": 503, "status": "UNAVAILABLE"}},
+            )
+        return httpx.Response(
+            200,
+            request=request,
+            json={
+                "candidates": [
+                    {
+                        "content": {
+                            "parts": [
+                                {
+                                    "text": (
+                                        '{"question":"Recovered","kind":"initial",'
+                                        '"challenge_summary":null,"workspace_fact_used":null}'
+                                    )
+                                }
+                            ]
+                        }
+                    }
+                ]
+            },
+        )
+
+    with httpx.Client(transport=httpx.MockTransport(handler)) as http_client:
+        provider = GeminiLLMProvider(
+            api_key="test-key",
+            model="gemini-test-model",
+            client=http_client,
+            max_attempts=2,
+        )
+        result = provider.generate_structured(
+            task="generate_question",
+            system_prompt="system",
+            context={},
+            output_schema=GeneratedInterviewQuestion,
+        )
+
+    assert result.question == "Recovered"
+    assert requests == 2

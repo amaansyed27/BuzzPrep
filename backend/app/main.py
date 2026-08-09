@@ -10,11 +10,14 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
 from app.api.interview import router as interview_router
+from app.config import load_environment
 from app.db.database import Database
 from app.interview.engine import AdaptiveInterviewEngine
 from app.llm.factory import build_llm_provider
 from app.services.interviewer import InterviewEngine, InterviewEngineError
 from app.services.session import InterviewSessionError
+
+load_environment()
 
 
 def _validation_details(exc: RequestValidationError) -> list[dict[str, Any]]:
