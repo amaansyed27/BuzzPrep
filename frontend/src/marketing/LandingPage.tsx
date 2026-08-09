@@ -22,6 +22,7 @@ import {
 import { useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import ProductNav from "../components/ProductNav";
+import HackathonTeamSection from "./HackathonTeamSection";
 import ProductSequence from "./ProductSequence";
 import "./landing-cinematic.css";
 
@@ -269,6 +270,8 @@ export default function LandingPage() {
           </p>
         </div>
       </section>
+
+      <HackathonTeamSection />
 
       <section className="final-cta" data-reveal>
         <span><Braces size={18} /> YOUR NEXT ANSWER SHOULD CHANGE THE ROOM.</span>
