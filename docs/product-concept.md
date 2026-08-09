@@ -1,307 +1,415 @@
 # BuzzPrep Product Concept
 
-## Core Idea
+## Product statement
 
-BuzzPrep is an **interactive AI technical interview simulator** for the complete 31-day AI Cohort.
+BuzzPrep is an **adaptive, evidence-aware technical interview simulator** for the supplied 31-day AI Cohort.
 
-A normal AI interviewer mainly asks questions in a chat or meeting-style interface. BuzzPrep adds a second layer: the candidate is placed inside an adaptive technical workspace where they must make decisions, manipulate systems, diagnose problems, and respond to changing scenarios while the interview is happening.
+The product combines a conversational interviewer with a structured engineering workspace. A candidate is not evaluated only on the text of an answer: the interview can also use machine-readable evidence from actions such as changing configuration, editing code or prompts, connecting architecture components, running a task, or submitting a structured decision.
 
-The experience is inspired by scenario-based learning such as Duolingo's interactive exercises, where the learner demonstrates knowledge by acting inside a simulated situation rather than only answering isolated questions.
+That distinction is the core product idea:
 
-RAG is only one example. The same product should be able to interview the candidate across every area represented in the supplied curriculum: environment setup, data processing, embeddings, vector search, RAG, prompting, fine-tuning, APIs, frontend integration, streaming, memory, agents, MCP, evaluation, optimization, security, deployment, observability, production readiness, and capstone system design.
+> **A technical interview should evaluate engineering decisions, not only interview prose.**
 
-## Two Synchronized Interview Channels
+BuzzPrep is implemented as a full browser product and as the organizer-compatible public `POST /api/interview` API. The visual workspace is additive; the required conversational API remains usable independently.
 
-Every interview combines:
+## The two synchronized interview channels
 
-1. **Conversation** — the AI interviewer asks questions, listens to explanations, challenges assumptions, introduces constraints, and asks follow-ups.
-2. **Interactive workspace** — the candidate performs technical actions appropriate to the current topic.
+Every full BuzzPrep interview can combine two evidence channels.
 
-Both become part of the interview context.
+### 1. Conversation
 
-The interviewer should therefore reason about:
+The adaptive interviewer:
 
-- what the candidate said;
-- what they selected, connected, configured, changed, or removed;
-- whether their actions satisfy the scenario;
-- whether their explanation matches what they actually built;
-- how they react to failures or changing requirements;
-- whether they can explain the trade-offs behind their decisions.
+- asks curriculum-grounded questions;
+- evaluates the candidate's latest answer;
+- uses prior conversation context;
+- decides whether to follow up, deepen, or move to another curriculum area;
+- generates structured final feedback.
 
-## The Workspace Is Adaptive, Not One Fixed Canvas
+### 2. Interactive workspace
 
-BuzzPrep should not force every curriculum topic into the same drag-and-drop graph.
+The candidate can perform practical actions in a reusable technical workspace. Workspace mutations are serialized into a stable schema and sent with the candidate's answer.
 
-Instead, interview challenges are rendered using a small set of reusable interaction primitives.
+Examples include:
 
-### 1. System Builder
+- add or remove a system component;
+- connect or disconnect components;
+- change a configuration value;
+- edit code, prompts, JSON/schema, SQL, or configuration;
+- run an inspection/test action;
+- submit a structured decision;
+- undo or reset work.
 
-Drag, connect, reorder, or remove technical components.
+Pure visual selection is intentionally excluded from evidence. Selecting a node or edge does not prove technical understanding and therefore is not emitted as semantic candidate evidence.
 
-Useful for:
+## Product journey
 
-- full-stack architecture;
-- knowledge-base pipelines;
-- RAG;
-- retrieval routing;
-- agents;
-- MCP;
-- deployment;
-- production architecture.
+BuzzPrep currently supports two browser journeys that use the same backend interview system.
 
-### 2. Configuration Lab
+### Public demo journey
 
-Choose tools, models, parameters, schemas, metadata, environment settings, or deployment options.
-
-Useful for:
-
-- local LLM setup;
-- vector databases;
-- embedding models;
-- fine-tuning;
-- function calling;
-- API configuration;
-- Docker/Kubernetes.
-
-### 3. Data Workbench
-
-Inspect, transform, classify, route, chunk, filter, or validate sample data.
-
-Useful for:
-
-- Pandas/SQL tasks;
-- structured and unstructured data;
-- chunking;
-- metadata design;
-- vector indexing;
-- retrieval evaluation.
-
-### 4. Prompt / Schema Builder
-
-Construct or modify prompts, examples, constraints, tool schemas, Pydantic structures, or response formats and then test them.
-
-Useful for:
-
-- prompt engineering;
-- structured outputs;
-- function calling;
-- grounded RAG prompting;
-- response formatting.
-
-### 5. Debugging Console
-
-Show a partially broken system, logs, errors, traces, bad outputs, or incorrect routing and ask the candidate to diagnose and repair it.
-
-Useful for:
-
-- FastAPI/backend issues;
-- streaming failures;
-- conversation memory;
-- agent tool selection;
-- MCP failures;
-- production testing.
-
-### 6. Evaluation Bench
-
-Present test cases, outputs, retrieval results, latency, token usage, or quality metrics. The candidate decides what is wrong and what to improve.
-
-Useful for:
-
-- embedding quality;
-- retrieval evaluation;
-- prompt comparisons;
-- fine-tuning comparisons;
-- chatbot evaluation;
-- performance optimization.
-
-### 7. Incident / Constraint Simulator
-
-Change requirements during the interview and require the candidate to react.
-
-Examples:
-
-- a dataset doubles in size;
-- a retrieval system starts returning irrelevant results;
-- a tool fails intermittently;
-- token usage becomes too expensive;
-- sensitive data appears in the pipeline;
-- latency increases;
-- a deployment fails a health check;
-- monitoring reveals a spike in errors.
-
-This interaction style is useful across the whole curriculum and makes the interview behave more like an engineering conversation than a quiz.
-
-## Example: RAG Is One Scenario
-
-A RAG challenge might present:
+The public demo does not require authentication.
 
 ```text
-Data Sources
+Landing page
     ↓
-Processing / Chunking
+Public demo setup
     ↓
-Embedding Model
+Choose supplied candidate
     ↓
-Vector Store
+Readiness check
     ↓
-Retriever / Router
+Adaptive interview + workspace
     ↓
-LLM
-    ↓
-Answer
+Evidence-based results
 ```
 
-The candidate could choose among curriculum-aligned components such as Sentence Transformers, ChromaDB, Pinecone, SQLite, semantic retrieval, structured retrieval, hybrid retrieval, or an LLM provider.
+The organizer can also call the public API directly without using the frontend or workspace.
 
-There should not be one predetermined perfect graph. Multiple solutions may be valid depending on the scenario. The useful interview signal is whether the candidate makes a coherent decision and can defend it.
+### Authenticated journey
 
-But this is only one challenge type. A Day 12 prompt interview should look different from a Day 27 security interview or a Day 29 observability interview.
+When Supabase Auth is configured, the product adds persistent user-owned history.
 
-## Curriculum-Wide Interview Examples
+```text
+Landing page
+    ↓
+Magic Link authentication
+    ↓
+Dashboard / history
+    ↓
+Candidate setup
+    ↓
+Readiness check
+    ↓
+Adaptive interview
+    ↓
+Persisted results
+    ↓
+Owned history / resume
+```
 
-BuzzPrep should be able to generate interactive challenges for all eight curriculum modules:
+The backend verifies the Supabase bearer token and uses the verified token subject as the owner. The frontend does not provide a trusted raw user id.
 
-### Module 1 — Environment & Tooling
+## Curriculum grounding
 
-Set up or repair a development environment, connect a local model, wire a simple React/FastAPI/Ollama application, or identify why a workflow does not run.
+The supplied 31-day curriculum is deterministic application data, not a vector database and not model-generated content.
 
-### Module 2 — Data Foundations
+BuzzPrep loads the curriculum and uses it as the source of truth for:
 
-Choose the correct processing path for CSV, SQL, PDF, DOCX, scanned, or web data; clean it; build retrieval-friendly chunks; attach useful metadata; validate the resulting knowledge base.
+- day and module coverage;
+- topic names;
+- objectives;
+- tools;
+- suitable interaction types.
 
-### Module 3 — Embeddings & Vector Search
-
-Compare embedding choices, interpret similarity behavior, configure a vector store, populate an index, test metadata filtering, and build structured/vector/hybrid retrieval flows.
-
-### Module 4 — LLM Core, Prompting & Fine-Tuning
-
-Build grounded RAG prompts, compare prompt strategies, construct function schemas, validate structured outputs, decide when fine-tuning is justified, and compare base vs fine-tuned behavior.
-
-### Module 5 — Chatbot Application Build
-
-Repair or assemble APIs, frontend/backend integration, streaming, rich outputs, citations, session history, summarization, and token-aware conversation memory.
-
-### Module 6 — Agentic AI & MCP
-
-Choose tools, inspect agent decisions, build routing between specialist agents, expose MCP tools, connect MCP clients, and recover from tool or orchestration failures.
-
-### Module 7 — Evaluation, Security & Deployment
-
-Create or interpret evaluation cases, improve latency/token cost, identify security weaknesses, add guardrails, containerize services, configure Kubernetes resources, and diagnose deployment problems.
-
-### Module 8 — Production & Capstone
-
-Interpret logs/metrics, design observability, perform production-readiness checks, diagnose end-to-end failures, and defend a complete production architecture.
-
-See [`curriculum-interactions.md`](curriculum-interactions.md) for one concrete interactive interview example for every curriculum day.
-
-## Adaptive Interviewing
-
-Workspace actions should influence the interviewer immediately.
-
-Examples:
-
-- candidate chooses ChromaDB → ask why local storage fits the scenario;
-- candidate configures a weak prompt → show a failure case and ask them to improve it;
-- candidate gives an agent too many overlapping tools → present incorrect tool selection;
-- candidate forgets retries around MCP calls → inject a transient failure;
-- candidate ignores token limits → expand conversation history until context becomes a problem;
-- candidate deploys without a health check → simulate an unhealthy container;
-- candidate notices an error spike in metrics → ask what logs or traces they would inspect next.
-
-A strong answer should not simply end the task. It can trigger a harder constraint or require the candidate to explain why an alternative would be worse.
-
-## Personalization
-
-The supplied candidate profile should determine which curriculum areas are selected and how difficult each challenge becomes.
-
-Useful signals include:
+The candidate profiler and planner normalize the supplied candidate record and use signals such as:
 
 - job role;
 - years of experience;
-- completed missions;
+- education;
+- passed missions;
 - failed missions;
 - skipped missions;
-- number of attempts;
+- attempt counts;
 - first-try completion signals.
 
-The goal is not to punish skipped or failed topics automatically. These signals help the interviewer decide what knowledge is reasonable to test, what deserves reinforcement, and where a deeper probe may reveal genuine understanding.
+The planner then produces a deterministic interview plan before the LLM is responsible for conversational wording.
 
-An experienced DevOps engineer may receive deeper deployment, monitoring, and failure-recovery scenarios. A candidate who struggled with embeddings or vector databases may receive a more foundational retrieval challenge. An AI engineer who completed most missions on the first attempt may be pushed toward architecture trade-offs and failure cases.
+Failed and skipped material is not silently treated as completed knowledge. The planner can use it intentionally as diagnostic, gap-check, or exploratory material.
 
-## Interview Orchestration
+## Adaptive interview loop
 
-A BuzzPrep interview can follow this loop:
+The implemented high-level loop is:
 
 ```text
 Candidate profile + curriculum
             ↓
-Select interview areas and difficulty
+Deterministic interview plan
             ↓
-Present scenario
+Retrieve relevant prior evidence (optional Breeth)
             ↓
-Candidate talks + interacts
+Generate curriculum-grounded question
             ↓
-Evaluate answer + workspace state
+Candidate answers + performs workspace actions
             ↓
-Ask follow-up OR introduce constraint
+Evaluate answer + workspace evidence
             ↓
-Candidate modifies/explains
+Choose follow-up / deepen / transition
             ↓
-Track evidence and curriculum coverage
+Python checks hard completion invariant
             ↓
-Next challenge
-            ↓
-Structured final feedback
+Continue OR generate structured final feedback
 ```
 
-The challenge engine therefore needs to decide not only **what question to ask**, but also **what environment to show** and **what action the candidate should perform**.
+The adaptive loop is implemented with LangGraph. Model outputs are validated against Pydantic schemas rather than parsed from unrestricted prose.
 
-## Assessment Model
+## Hard completion rules
 
-BuzzPrep should assess more than keyword matching.
+The LLM cannot decide that an interview is complete by itself.
 
-Useful dimensions include:
+Python owns the invariant:
 
-- conceptual understanding;
-- technical correctness;
-- architecture coherence;
-- reasoning and trade-offs;
-- ability to apply concepts;
-- debugging ability;
-- response to changing requirements;
-- communication quality;
-- consistency between explanation and workspace actions.
+```text
+question_count >= 8
+AND
+number of distinct covered curriculum days >= 4
+```
 
-The final feedback can then summarize strengths, gaps, and next steps using evidence collected throughout the interview.
+This guarantees the hackathon's minimum coverage even when the adaptive interviewer wants to stay longer on a strong or weak topic.
 
-## Relationship to Hackathon Requirements
+## Reusable interaction model
 
-The interactive experience does not replace the required conversational interview.
+BuzzPrep uses nine logical interaction types from the deterministic planner:
 
-BuzzPrep must still:
+- `system_canvas`
+- `configuration_lab`
+- `data_workbench`
+- `prompt_schema_editor`
+- `code_config_repair`
+- `logs_metrics_explorer`
+- `test_evaluation_runner`
+- `incident_simulator`
+- `architecture_critique`
 
-- conduct a multi-turn interview;
-- ask at least 8 questions across at least 4 curriculum days;
-- generate response-dependent follow-ups;
-- preserve context using the provided `sessionId`;
-- return the required structured feedback;
-- expose `POST /api/interview`.
+The frontend maps these into four reusable renderer families instead of building 31 unrelated interfaces.
 
-The interactive workspace is an additional source of interview evidence and differentiation.
+### System canvas
 
-The external API must remain usable even when no visual frontend is present. Interactive workspace actions should therefore be represented as machine-readable interview context without making the required conversational contract dependent on a particular UI.
+React Flow is used for component and architecture manipulation.
 
-## Current Direction
+Typical uses:
 
-The product concept is intentionally architecture-neutral at this stage.
+- RAG/retrieval flow;
+- agent/tool architecture;
+- deployment/system design;
+- production architecture critique.
 
-The next design step is to decide:
+### Configuration lab
 
-- the interview challenge schema;
-- how each interaction primitive is represented in frontend state;
-- how candidate actions are converted into machine-readable events;
-- how the interviewer evaluates both conversation and workspace state;
-- how the full curriculum maps into reusable challenge templates;
-- how scoring and final feedback are derived;
-- the frontend/backend architecture.
+The candidate chooses or changes tools, modes, parameters, policies, and settings.
+
+Typical uses:
+
+- model/provider choices;
+- vector-store decisions;
+- timeout/retry configuration;
+- deployment and security settings.
+
+### Editor challenge
+
+Monaco-backed editor modes support code, prompt text, JSON/schema, SQL, and configuration.
+
+Typical uses:
+
+- prompt/schema design;
+- code or config repair;
+- structured output definitions;
+- query fixes.
+
+### Inspection challenge
+
+A shared inspection family represents data, logs, metrics, tests, incidents, and architecture critique.
+
+Typical uses:
+
+- data/retrieval inspection;
+- production debugging;
+- evaluation results;
+- failure/constraint analysis.
+
+The curriculum-wide examples in [`curriculum-interactions.md`](curriculum-interactions.md) show how all 31 days can map into these reusable primitives.
+
+## Workspace evidence model
+
+The workspace is curriculum-agnostic and serializable.
+
+Important state includes:
+
+- nodes and edges;
+- configuration values;
+- editor content;
+- submissions;
+- structured mutation events;
+- active challenge id;
+- reset baseline.
+
+Candidate mutation events include:
+
+```text
+add
+remove
+connect
+disconnect
+configure
+edit
+run
+submit
+undo
+reset
+```
+
+The backend receives both a snapshot and recent events. The interview engine can summarize those actions into compact facts and include them in answer evaluation and question generation.
+
+The system protects against invented workspace references: generated questions may only claim to use a workspace fact that was actually supplied.
+
+## Evidence-based evaluation
+
+BuzzPrep is designed to evaluate more than keyword overlap.
+
+The interview engine can reason about:
+
+- conceptual correctness;
+- technical reasoning;
+- trade-offs;
+- application of curriculum concepts;
+- whether the explanation matches the candidate's workspace actions;
+- debugging and failure-handling decisions;
+- demonstrated strengths or misconceptions over multiple turns.
+
+Final feedback uses the required shape:
+
+```json
+{
+  "summary": "...",
+  "strengths": [],
+  "gaps": [],
+  "next": []
+}
+```
+
+The browser progress UI shows safe operational progress such as questions asked and curriculum days covered. Hidden scores, rubrics, future questions, and answer keys are not exposed.
+
+## State, memory, and ownership
+
+BuzzPrep uses different storage mechanisms for different responsibilities.
+
+### SQL is canonical state
+
+SQLAlchemy persists:
+
+- candidate data;
+- interview ownership;
+- ordered conversation turns;
+- question and turn counts;
+- covered curriculum days;
+- current day/topic/challenge;
+- workspace snapshot;
+- structured evaluation state;
+- completion state;
+- integrity telemetry;
+- timestamps and final status.
+
+SQLite is used for local development by default. Production can use PostgreSQL, including Supabase Postgres.
+
+### Breeth is optional semantic memory
+
+Breeth sits behind a small `MemoryService` interface. BuzzPrep writes concise, high-signal observations rather than treating the memory service as the source of truth.
+
+Memory is scoped by:
+
+- candidate id; and
+- interview session id.
+
+Retrieval failure, timeout, or unavailability does not terminate the interview. The deterministic SQL session state remains sufficient to continue.
+
+### Authenticated history is additive
+
+A valid Supabase bearer token lets the backend associate a session with the verified user and expose owned history through:
+
+```text
+GET /api/me/interviews
+GET /api/me/interviews/{sessionId}
+```
+
+The required public interview endpoint remains unauthenticated.
+
+## LLM boundary and provider fallback
+
+The interview graph calls one provider-neutral structured generation interface.
+
+The configured production chain can use:
+
+1. Gemini;
+2. GroqCloud;
+3. OpenRouter.
+
+Fallback is intended for provider availability, transient failure, or invalid structured generation. Rejected/invalid client requests are not hidden by trying another provider.
+
+A deterministic fake provider exists for tests and explicit offline/local demos. Normal runtime never silently chooses fake AI.
+
+## Voice interaction
+
+The active interview UI now supports optional browser voice controls.
+
+### Dictation
+
+If the browser exposes `SpeechRecognition` or `webkitSpeechRecognition`, the candidate can dictate into the normal answer composer. Dictation is always optional; the candidate can edit the resulting text before submission.
+
+BuzzPrep does not upload or persist microphone audio in its backend. Recognition behavior, processing location, permissions, and browser support depend on the browser/OS implementation.
+
+### Interviewer read-aloud
+
+The candidate can enable browser Speech Synthesis for interviewer messages. BuzzPrep prefers a locale-compatible natural/neural voice when one is exposed by the browser and falls back to an available voice.
+
+No audio recording is required for either feature.
+
+## Integrity telemetry and privacy boundary
+
+BuzzPrep records a small set of transparent browser-state events during active prep:
+
+- tab hidden / visible;
+- window blur / focus;
+- fullscreen enter / exit;
+- reconnect.
+
+These events are kept separate from answer and workspace evidence. They are not treated as proof that an answer is right or wrong.
+
+The product does **not** add passive microphone recording, camera recording, or screen-video capture.
+
+## Desktop workspace requirement
+
+The full technical workspace is intentionally desktop-oriented.
+
+An active interview requires:
+
+```text
+(min-width: 960px) and (pointer: fine)
+```
+
+This avoids presenting a broken compressed engineering canvas on phones or touch-only devices. Landing, auth, dashboard, history, and results remain available in responsive layouts.
+
+## Relationship to the hackathon requirements
+
+BuzzPrep preserves the organizer's required behavior:
+
+- public `POST /api/interview`;
+- state maintained by supplied `sessionId`;
+- conversational multi-turn interview;
+- at least 8 questions;
+- at least 4 curriculum days;
+- response-dependent follow-ups;
+- structured final feedback with `summary`, `strengths`, `gaps`, and `next`.
+
+The following are product extensions, not evaluator requirements:
+
+- interactive workspace evidence;
+- Supabase Magic Link authentication;
+- owned interview history;
+- readiness flow;
+- integrity telemetry;
+- browser voice input and read-aloud.
+
+## Current product boundaries
+
+BuzzPrep is a hackathon product, not a remote-proctoring platform or a general-purpose IDE.
+
+Important boundaries:
+
+- the workspace is a structured simulation, not arbitrary code execution;
+- browser speech support varies and typing is always the fallback;
+- Breeth is optional and non-authoritative;
+- the active workspace is desktop-oriented;
+- the public evaluator does not need authentication or workspace payloads;
+- deterministic curriculum/session rules remain outside the LLM.
+
+These boundaries keep the product focused on the interview objective: **turning a candidate's learning history, reasoning, and technical actions into an adaptive interview with defensible evidence.**
