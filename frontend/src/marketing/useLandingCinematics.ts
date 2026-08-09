@@ -26,7 +26,7 @@ export function useLandingCinematics(
     const revealNodes = Array.from(root.querySelectorAll<HTMLElement>("[data-reveal]"));
     const heroLines = Array.from(root.querySelectorAll<HTMLElement>("[data-hero-line]"));
     const heroProduct = root.querySelector<HTMLElement>("[data-hero-product]");
-    const heroMeta = root.querySelector<HTMLElement>("[data-hero-meta]");
+    const heroMeta = Array.from(root.querySelectorAll<HTMLElement>("[data-hero-meta]"));
     const heroCue = root.querySelector<HTMLElement>("[data-hero-cue]");
     const parallaxNodes = Array.from(root.querySelectorAll<HTMLElement>("[data-parallax]"));
 
@@ -42,7 +42,7 @@ export function useLandingCinematics(
         heroProduct.style.transform = "none";
         heroProduct.style.filter = "none";
       }
-      if (heroMeta) heroMeta.style.opacity = "1";
+      heroMeta.forEach((node) => { node.style.opacity = "1"; });
       if (heroCue) heroCue.style.opacity = "1";
       return;
     }
@@ -79,7 +79,7 @@ export function useLandingCinematics(
       });
 
       const metaProgress = clamp(hero * 2.4);
-      if (heroMeta) heroMeta.style.opacity = String(metaProgress);
+      heroMeta.forEach((node) => { node.style.opacity = String(metaProgress); });
 
       const productProgress = clamp(hero * 1.65 - 0.28);
       if (heroProduct) {
