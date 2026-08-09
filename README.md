@@ -1,83 +1,169 @@
 # BuzzPrep
 
-BuzzPrep is Team **BuzzBees'** submission for **The Interview Agent** hackathon.
-It is an adaptive technical interview workspace: the interviewer evaluates both what a
-candidate says and what they do in a structured engineering challenge.
+**BuzzPrep** is Team **BuzzBees'** submission for the **The Interview Agent** hackathon: an adaptive technical interview simulator that evaluates both what a candidate **says** and what they **do** in a structured engineering workspace.
 
-## What works
+The core differentiator is simple: **BuzzPrep is not only a chatbot.** The interviewer can adapt to a candidate's explanation, curriculum history, and machine-readable workspace actions such as connecting components, changing configuration, editing code or prompts, running tasks, and submitting evidence.
 
-- Candidate selection uses all 20 supplied profiles from `candidates.json`.
-- LangGraph owns the adaptive question, evaluation, follow-up, and feedback flow.
-- Python enforces the completion gate: at least 8 questions across 4 curriculum days.
-- SQLite persists local/test sessions; standard PostgreSQL persists deployed sessions.
-- Gemini, GroqCloud, and OpenRouter share one validated structured-generation interface.
-  Runtime availability failures fail over in that order; invalid client requests do not.
-- Breeth stores only high-signal, session/candidate-scoped evidence and degrades safely.
-- The workspace includes a React Flow system canvas, Monaco-based editor, configuration
-  lab, and logs/metrics/trace inspection mode.
-- Workspace mutations are serialized and sent with the candidate's answer; simple visual
-  selection is not treated as evidence.
-- The final view renders the required `summary`, `strengths`, `gaps`, and `next` fields.
-- The public product includes a landing page, Magic Link auth, a real SQL-backed dashboard,
-  resumable interview history, readiness checks, and mobile-safe completed results.
+## Live product
+
+- Frontend: <https://buzzprep-web.vercel.app>
+- API: <https://buzzprep-api.vercel.app>
+- Health: <https://buzzprep-api.vercel.app/health>
+- Required evaluator endpoint: `POST /api/interview`
+
+The organizer endpoint remains public and does not require authentication or workspace data. Authentication, interview history, the interactive workspace, integrity telemetry, and voice controls are additive product features.
+
+## What is implemented
+
+- **31-day curriculum grounding** — the supplied curriculum remains deterministic application data and is the source of truth for interview topics.
+- **Candidate-aware planning** — all 20 supplied candidate profiles can be profiled using role, experience, passed/failed/skipped missions, attempts, and learning signals.
+- **Adaptive LangGraph interviewer** — question generation, answer evaluation, follow-up/deepen decisions, curriculum transitions, and final feedback run through a structured interview graph.
+- **Hard completion invariant** — Python, not the LLM, enforces at least **8 questions across 4 distinct curriculum days**.
+- **Evidence-aware workspace** — React Flow, Monaco, configuration, and inspection experiences emit structured candidate actions instead of relying on visual state alone.
+- **Nine logical interaction types** — `system_canvas`, `configuration_lab`, `data_workbench`, `prompt_schema_editor`, `code_config_repair`, `logs_metrics_explorer`, `test_evaluation_runner`, `incident_simulator`, and `architecture_critique` are mapped to four reusable renderer families.
+- **Persistent interview state** — SQLAlchemy stores sessions, ordered turns, coverage, current challenge, workspace snapshots, structured scores, completion state, ownership, timestamps, and integrity telemetry.
+- **SQLite + PostgreSQL** — SQLite is the local default; deployed BuzzPrep uses standard PostgreSQL through Supabase's Postgres connection surface.
+- **Structured LLM provider chain** — Gemini, GroqCloud, and OpenRouter use one validated interface with controlled availability fallback.
+- **Breeth semantic memory** — high-signal observations are stored and retrieved within candidate/session scope; memory failure is explicitly non-fatal.
+- **Public demo + authenticated product flow** — landing page, Magic Link authentication, dashboard, interview history, readiness flow, active interview, and persisted results are implemented.
+- **Opt-in browser voice controls** — candidates can dictate answers where the browser exposes Speech Recognition and can enable interviewer read-aloud through Speech Synthesis.
+- **Transparent integrity telemetry** — focus, tab visibility, fullscreen, and reconnect events are kept separate from semantic answer/workspace evidence.
 
 ## Architecture
 
-- Frontend: React 19, Vite, TypeScript, Zustand, React Flow, Monaco, Lucide.
-- Backend: Python 3.12, FastAPI, Pydantic, LangGraph, SQLAlchemy, psycopg 3.
-- LLM: Gemini Interactions structured generation with GroqCloud and OpenRouter fallbacks,
-  or an explicitly selected deterministic fake provider for offline development.
-- Memory: Breeth Python SDK behind a small `MemoryService` interface.
-- Persistence: local SQLite or deployed PostgreSQL (Supabase is supported directly through
-  its normal Postgres connection string; the Supabase Data API is not used).
+```mermaid
+flowchart LR
+    U[Candidate] --> F[React + Vite frontend]
+    F -->|POST /api/interview| A[FastAPI API]
+    F -->|Bearer token for owned history| A
+    A --> S[SQL session service]
+    S --> DB[(SQLite / PostgreSQL)]
+    A --> G[LangGraph adaptive interview engine]
+    G --> P[Candidate profiler + curriculum planner]
+    G --> L[Structured LLM provider boundary]
+    L --> GE[Gemini]
+    L --> GR[GroqCloud]
+    L --> OR[OpenRouter]
+    G --> M[MemoryService]
+    M --> B[Breeth]
+    F --> W[Reusable workspace renderers]
+    W -->|serialized state + action events| A
+```
 
-The supplied curriculum is deterministic application data, not a vector database. Breeth
-adds relevant evidence context but never overrides exact SQL session state.
+The architecture deliberately separates deterministic responsibilities from model-generated reasoning:
 
-## Environment
+- **Python owns:** request validation, persistence, candidate profiling, curriculum selection rules, coverage accounting, completion eligibility, ownership, and response schemas.
+- **The LLM owns:** question wording, answer evaluation, adaptive probing, and final feedback inside validated structured outputs.
+- **Breeth owns:** optional semantic recall of concise observations, never canonical interview state.
+- **The frontend owns:** interaction rendering and candidate action capture, never backend scoring rules.
 
-The canonical local configuration file is `repo-root/.env`. Copy `.env.example` to `.env`:
+For the detailed component and request lifecycle, see [`docs/architecture.md`](docs/architecture.md).
+
+## Product flows
+
+### Public evaluator / demo
+
+The required `POST /api/interview` endpoint works without authentication and without workspace data. An empty candidate object is also supported for a neutral evaluator-compatible profile.
+
+The public browser demo can be started from `/demo/setup` and does not require a Supabase account.
+
+### Authenticated product
+
+When Supabase Auth is configured, a candidate can use Magic Link authentication and access:
+
+- `/dashboard` — recent and active interviews;
+- `/history` — full owned history;
+- `/prep/new` — candidate setup;
+- `/prep/:sessionId/readiness` — readiness checks;
+- `/prep/:sessionId` — active interview;
+- `/results/:sessionId` — persisted result.
+
+The backend verifies the bearer token and associates new authenticated interviews with the verified Supabase user subject. The browser never supplies a trusted raw owner id.
+
+### Active interview device requirement
+
+The landing, auth, dashboard, history, and results experiences are responsive. Starting or resuming the full technical workspace requires a viewport of at least **960 CSS pixels** with a fine pointer. Smaller or touch-only devices receive a desktop requirement instead of a compressed workspace.
+
+## Tech stack
+
+### Frontend
+
+- React 19
+- TypeScript
+- Vite 7
+- React Router
+- Zustand
+- `@xyflow/react` / React Flow
+- Monaco Editor
+- Supabase JS
+- Lucide icons
+- Browser Web Speech APIs for optional dictation/read-aloud
+
+### Backend
+
+- Python 3.12+
+- FastAPI
+- Pydantic v2
+- LangGraph
+- SQLAlchemy 2
+- psycopg 3
+- HTTPX
+- Breeth Python SDK
+
+### Infrastructure
+
+- Vercel — frontend and FastAPI deployment
+- Supabase Postgres — deployed persistent state
+- Supabase Auth — optional Magic Link identity and owned history
+- Gemini / GroqCloud / OpenRouter — structured generation provider chain
+- Breeth — optional semantic interview memory
+
+## Repository layout
+
+```text
+BuzzPrep/
+├── backend/
+│   ├── app/
+│   │   ├── api/           # interview + authenticated history routes
+│   │   ├── auth/          # optional Supabase token verification
+│   │   ├── curriculum/    # curriculum loading
+│   │   ├── db/            # SQLAlchemy engine/session lifecycle
+│   │   ├── interview/     # LangGraph engine, graph state, prompts, outputs
+│   │   ├── llm/           # provider-neutral structured generation adapters
+│   │   ├── memory/        # Breeth/No-op memory service boundary
+│   │   ├── models/        # SQLAlchemy persistence models
+│   │   ├── planning/      # deterministic interview planner
+│   │   ├── profiling/     # candidate normalization/profiling
+│   │   ├── schemas/       # API + workspace schemas
+│   │   └── services/      # session/interviewer application boundaries
+│   ├── scripts/           # live provider and memory smoke tests
+│   ├── tests/
+│   └── resources/         # deployment-safe copies of candidate/curriculum data
+├── frontend/
+│   └── src/
+│       ├── auth/
+│       ├── challenges/    # reusable renderer registry and implementations
+│       ├── dashboard/
+│       ├── marketing/
+│       ├── prep/
+│       └── workspace/     # serializable state + structured action events
+├── docs/
+├── hackathon-resources/   # supplied curriculum, candidates, technical spec
+├── supabase/migrations/
+└── .env.example
+```
+
+## Run locally on Windows
+
+The canonical local configuration file is `repo-root/.env`.
 
 ```powershell
 Copy-Item .env.example .env
 ```
 
-Process environment variables take precedence over `.env`. Never commit `.env`.
-
-```env
-DATABASE_URL=sqlite:///./buzzprep.db
-
-SUPABASE_URL=
-SUPABASE_PUBLISHABLE_KEY=
-
-LLM_PROVIDER_CHAIN=gemini,groq,openrouter
-LLM_PROVIDER=gemini
-LLM_API_KEY=
-LLM_MODEL=gemini-3.6-flash
-GROQ_API_KEY=
-GROQ_MODEL=openai/gpt-oss-120b
-OPENROUTER_API_KEY=
-OPENROUTER_MODEL=openrouter/free
-
-BREETH_API_KEY=
-BREETH_ENABLED=true
-
-VITE_API_BASE_URL=http://127.0.0.1:8000
-VITE_SUPABASE_URL=
-VITE_SUPABASE_PUBLISHABLE_KEY=
-VITE_ENABLE_AUTH=true
-CORS_ORIGINS=http://localhost:5173,http://127.0.0.1:5173,https://buzzprep-web.vercel.app
-```
-
-`LLM_PROVIDER=fake` is allowed for tests and explicit local demos. A normal run never falls
-back to fake AI silently. If Breeth is enabled without a key, semantic memory logs a warning
-and disables itself without failing the interview.
-
-## Run locally on Windows
-
 Use two PowerShell terminals from the repository root.
 
-Backend:
+### Backend
 
 ```powershell
 cd backend
@@ -87,7 +173,7 @@ python -m pip install -e ".[dev]"
 python -m uvicorn app.main:app --reload
 ```
 
-Frontend:
+### Frontend
 
 ```powershell
 cd frontend
@@ -95,100 +181,30 @@ npm ci
 npm run dev
 ```
 
-Open `http://127.0.0.1:5173`. Vite proxies `/api` and `/health` to the local API.
+Open <http://127.0.0.1:5173>. Vite is configured to bind to IPv4 on Windows and proxies `/api` and `/health` to the local backend.
 
-Landing, authentication, dashboard, history, and results are responsive. Starting or
-resuming an active technical prep requires a viewport at least 960 CSS pixels wide and a
-fine pointer; smaller/touch-only devices receive a desktop requirement with a copy-link
-action instead of a cramped workspace.
-
-For a deterministic demo without credentials, set these values in `.env` before starting
-the backend:
+For a deterministic credential-free local interview:
 
 ```env
+LLM_PROVIDER_CHAIN=
 LLM_PROVIDER=fake
 BREETH_ENABLED=false
 ```
 
-Restore `LLM_PROVIDER=gemini` before a live-provider demo.
+A normal live run should use a configured real provider. BuzzPrep never silently falls back to fake AI.
 
-Magic Link authentication requires a Supabase project. Set the backend and `VITE_` public
-URL/publishable-key pairs to the same project. In Supabase Auth URL Configuration use:
+Full environment, database, Supabase, provider, Vercel, and troubleshooting instructions are in [`docs/operations.md`](docs/operations.md).
 
-```text
-Site URL: https://buzzprep-web.vercel.app
-Redirect URLs:
-  https://buzzprep-web.vercel.app/auth/callback
-  http://localhost:5173/auth/callback
-  http://127.0.0.1:5173/auth/callback
+## Required API contract
+
+The organizer contract from [`hackathon-resources/technical-spec.md`](hackathon-resources/technical-spec.md) is preserved.
+
+### Start
+
+```http
+POST /api/interview
+Content-Type: application/json
 ```
-
-Only the publishable key belongs in Vite. Never expose a secret/service-role key.
-
-## Verification
-
-Backend gates:
-
-```powershell
-cd backend
-.\.venv\Scripts\Activate.ps1
-python -m pytest
-python -m ruff check .
-python -m compileall -q app tests scripts
-```
-
-The deterministic end-to-end test is included in normal pytest and can also be isolated:
-
-```powershell
-python -m pytest tests\test_e2e_interview.py -q
-```
-
-Frontend gate:
-
-```powershell
-cd frontend
-npm ci
-npm run build
-```
-
-Live Gemini smoke (outside pytest):
-
-```powershell
-cd backend
-.\.venv\Scripts\Activate.ps1
-python scripts\smoke_gemini.py
-```
-
-This starts a real session, submits one strong and one weak answer, and prints only a
-secret-safe summary of the adaptive responses.
-
-Live structured smoke for the complete provider chain:
-
-```powershell
-cd backend
-.\.venv\Scripts\Activate.ps1
-python scripts\smoke_structured_providers.py
-```
-
-This makes one bounded, schema-validated request to Gemini `gemini-3.6-flash`, GroqCloud
-`openai/gpt-oss-120b`, and OpenRouter `openrouter/free`. It does not run during pytest.
-
-Live Breeth smoke (outside pytest):
-
-```powershell
-cd backend
-.\.venv\Scripts\Activate.ps1
-python scripts\smoke_breeth.py
-```
-
-This writes one temporary high-signal observation, retrieves it with the same
-`group_id`/candidate scope, and checks that it is absent from another session scope.
-
-## API contract
-
-`POST /api/interview` is public and does not require authentication or workspace data.
-
-Start:
 
 ```json
 {
@@ -197,10 +213,25 @@ Start:
 }
 ```
 
-An empty object selects the neutral public-evaluator profile. The candidate product flow
-sends the exact supplied candidate object from `candidates.json`.
+Typical response:
 
-Continue, optionally with additive workspace evidence:
+```json
+{
+  "reply": "...",
+  "done": false
+}
+```
+
+### Continue
+
+```json
+{
+  "sessionId": "abc-123",
+  "message": "My technical explanation..."
+}
+```
+
+The browser product may additionally attach workspace evidence and integrity events:
 
 ```json
 {
@@ -213,11 +244,14 @@ Continue, optionally with additive workspace evidence:
     "edges": [],
     "config": {},
     "events": []
-  }
+  },
+  "integrityEvents": []
 }
 ```
 
-Final:
+Non-final responses can add `challenge` and `progress`; those are additive and never expose hidden scores, rubrics, answer keys, or future questions.
+
+### Finish
 
 ```json
 {
@@ -232,44 +266,70 @@ Final:
 }
 ```
 
-Non-final responses may add `challenge` and `progress`. They never expose hidden scores,
-rubrics, answer keys, or future questions.
+### Authenticated history
 
-When the browser sends a valid Supabase bearer token, the new session is associated with
-the verified token subject. The browser never supplies a trusted raw user id. These routes
-require that token and return only the current user's rows:
+These product routes require a valid configured Supabase bearer token and only return rows owned by the verified user:
 
 ```text
 GET /api/me/interviews
 GET /api/me/interviews/{sessionId}
 ```
 
-Public evaluator sessions remain ownerless. Integrity events such as tab visibility,
-focus, fullscreen, and reconnect are stored separately from semantic workspace evidence.
+Public evaluator sessions remain ownerless.
 
-## PostgreSQL and Supabase
+## Evidence, privacy, and voice behavior
 
-Set `DATABASE_URL` to a normal psycopg-compatible PostgreSQL URL. For Vercel or another
-auto-scaling/serverless host with Supabase, use the dashboard's transaction-pooler URL on
-port `6543`:
+BuzzPrep keeps three categories distinct:
 
-```env
-DATABASE_URL=postgresql://postgres.PROJECT_REF:PASSWORD@REGION.pooler.supabase.com:6543/postgres
+1. **Interview state** — canonical SQL session/turn data.
+2. **Semantic evidence** — candidate answers and meaningful workspace mutations used by the interview engine and optional Breeth memory.
+3. **Integrity telemetry** — tab visibility, focus, fullscreen, and reconnect events stored separately from semantic evidence.
+
+Simple node/edge selection is UI state and is **not** counted as candidate evidence.
+
+Voice input is opt-in. BuzzPrep does not upload or store microphone audio in its backend. Dictation uses the browser's Speech Recognition implementation, so browser/OS/vendor behavior and support vary. Read-aloud uses browser Speech Synthesis. Typing remains available regardless of voice support.
+
+## Verification
+
+Backend gates:
+
+```powershell
+cd backend
+.\.venv\Scripts\Activate.ps1
+python -m pytest
+python -m ruff check .
+python -m compileall -q app tests scripts
 ```
 
-BuzzPrep detects port `6543`, uses SQLAlchemy `NullPool`, and disables psycopg automatic
-prepared statements for transaction-pooler compatibility. Use the direct/session URL for a
-long-lived backend. Credentials remain server-side.
+Deterministic end-to-end interview:
 
-## Vercel deployment
+```powershell
+python -m pytest tests\test_e2e_interview.py -q
+```
 
-Public hackathon demo:
+Frontend gate:
 
-- Frontend: <https://buzzprep-web.vercel.app>
-- API: <https://buzzprep-api.vercel.app>
-- Health: <https://buzzprep-api.vercel.app/health>
+```powershell
+cd frontend
+npm ci
+npm run build
+```
 
-The two application roots are independently deployable:
+Live provider/memory smoke scripts are intentionally outside normal pytest:
+
+```powershell
+cd backend
+.\.venv\Scripts\Activate.ps1
+python scripts\smoke_gemini.py
+python scripts\smoke_structured_providers.py
+python scripts\smoke_breeth.py
+```
+
+The production-finish release in PR #19 recorded **71 backend tests passing**, Ruff/compile checks passing, a successful frontend production build, successful live provider fallback and Breeth checks, persistent production sessions, and a full 8-question/4-day production completion. The later voice-controls commit is frontend-only.
+
+## Deployment
+
+BuzzPrep is split into independently deployable Vercel roots:
 
 ```powershell
 cd backend
@@ -279,53 +339,18 @@ cd ..\frontend
 vercel
 ```
 
-Configure backend production variables:
+The deployed backend should use a PostgreSQL `DATABASE_URL`; on serverless Vercel with Supabase, the transaction-pooler connection on port `6543` is supported directly. BuzzPrep detects that mode, disables psycopg automatic prepared statements, and uses `NullPool` so the external pooler remains responsible for connection reuse.
 
-- `DATABASE_URL`
-- `LLM_PROVIDER_CHAIN`
-- `LLM_PROVIDER`
-- `LLM_API_KEY`
-- `LLM_MODEL`
-- `GROQ_API_KEY`
-- `GROQ_MODEL`
-- `OPENROUTER_API_KEY`
-- `OPENROUTER_MODEL`
-- `BREETH_API_KEY`
-- `BREETH_ENABLED`
-- `SUPABASE_URL`
-- `SUPABASE_PUBLISHABLE_KEY`
-- `CORS_ORIGINS` (the deployed frontend origin)
+See [`docs/operations.md`](docs/operations.md) for the complete production configuration and validation checklist.
 
-Configure frontend production variables:
+## Documentation
 
-- `VITE_API_BASE_URL` (the deployed backend origin, without a trailing slash)
-- `VITE_SUPABASE_URL`
-- `VITE_SUPABASE_PUBLISHABLE_KEY`
-- `VITE_ENABLE_AUTH=true`
-
-Verify the deployed backend before promotion:
-
-```powershell
-Invoke-RestMethod https://YOUR-API.vercel.app/health
-```
-
-Then verify a public `POST /api/interview` start request and the full browser journey before
-promoting either preview deployment to production.
-
-## Demo script
-
-1. Select a supplied candidate and point out that their role and learning history shape the
-   first curriculum area.
-2. Start the interview and show the real `questions / 8+` and `days / 4+` progress counters.
-3. Make one meaningful workspace change, attach or submit it, and explain that BuzzPrep sends
-   the auditable event with the answer.
-4. Give a strong explanation; show the interviewer escalating to a constraint/trade-off probe.
-5. Give a deliberately weak explanation; show the targeted prerequisite diagnostic.
-6. Continue across multiple renderer modes and at least four curriculum days.
-7. Complete the eighth answer and show evidence-based strengths, gaps, and next steps.
-
-The one-line differentiator: **BuzzPrep is not just a chatbot—it watches what the candidate
-does in an interactive technical workspace and adapts.**
+- [`docs/product-concept.md`](docs/product-concept.md) — implemented product model, flows, evidence model, and product boundaries.
+- [`docs/architecture.md`](docs/architecture.md) — end-to-end system design, request lifecycles, state ownership, fallback, auth, and failure behavior.
+- [`docs/curriculum-interactions.md`](docs/curriculum-interactions.md) — curriculum-wide challenge map for all 31 days.
+- [`docs/operations.md`](docs/operations.md) — local setup, environment variables, Supabase/Postgres, Vercel, verification, and troubleshooting.
+- [`docs/demo-guide.md`](docs/demo-guide.md) — concise hackathon/evaluator demo path and what to highlight.
+- [`hackathon-resources/technical-spec.md`](hackathon-resources/technical-spec.md) — organizer-supplied API contract.
 
 ## Team BuzzBees
 
