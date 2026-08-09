@@ -67,6 +67,14 @@ def test_create_new_session_emits_and_persists_first_question(
     assert response.status_code == 200
     assert response.json()["done"] is False
     assert "Day" in response.json()["reply"]
+    assert response.json()["challenge"]["curriculumDay"] >= 1
+    assert response.json()["challenge"]["interactionTypes"]
+    assert response.json()["progress"] == {
+        "questionsAsked": 1,
+        "minimumQuestions": 8,
+        "daysCovered": 1,
+        "minimumDays": 4,
+    }
 
     session, turns = read_session(database_url, "abc-123")
     assert session.candidate_data == CANDIDATE
@@ -234,7 +242,16 @@ def test_engine_state_patch_and_final_response_follow_technical_spec(tmp_path: P
             "/api/interview",
             json={"sessionId": "complete-me", "candidate": CANDIDATE},
         )
-        assert set(start.json()) == {"reply", "done"}
+        assert start.json() == {
+            "reply": "Test interviewer started.",
+            "done": False,
+            "progress": {
+                "questionsAsked": 0,
+                "minimumQuestions": 8,
+                "daysCovered": 0,
+                "minimumDays": 4,
+            },
+        }
 
         response = test_client.post(
             "/api/interview",
@@ -249,6 +266,12 @@ def test_engine_state_patch_and_final_response_follow_technical_spec(tmp_path: P
                 "strengths": ["Clear explanation"],
                 "gaps": ["Needs more depth"],
                 "next": ["Review retrieval evaluation"],
+            },
+            "progress": {
+                "questionsAsked": 8,
+                "minimumQuestions": 8,
+                "daysCovered": 4,
+                "minimumDays": 4,
             },
         }
 

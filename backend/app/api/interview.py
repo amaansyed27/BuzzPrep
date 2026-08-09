@@ -14,8 +14,9 @@ router = APIRouter()
 def get_interview_session_service(request: Request) -> Iterator[InterviewSessionService]:
     database = request.app.state.database
     engine = request.app.state.interview_engine
+    memory = request.app.state.memory_service
     with database.session() as db:
-        yield InterviewSessionService(InterviewSessionRepository(db), engine)
+        yield InterviewSessionService(InterviewSessionRepository(db), engine, memory)
 
 
 @router.post(

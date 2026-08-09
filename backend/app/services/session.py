@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 from datetime import UTC, datetime
 from typing import Any
 
@@ -7,10 +8,18 @@ from sqlalchemy import func, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
+from app.memory.base import MemoryObservation, MemoryService, NoopMemoryService
 from app.models.interview import InterviewSession, InterviewTurn
-from app.schemas.interview import Feedback, InterviewResponse
+from app.schemas.interview import (
+    ChallengeMetadata,
+    Feedback,
+    InterviewProgress,
+    InterviewResponse,
+)
 from app.schemas.workspace import SerializedWorkspace
 from app.services.interviewer import InterviewEngine, InterviewEngineResult, InterviewStatePatch
+
+logger = logging.getLogger(__name__)
 
 
 def utcnow() -> datetime:
@@ -103,9 +112,15 @@ class InterviewSessionRepository:
 class InterviewSessionService:
     """Application service coordinating persistence and the replaceable interview engine."""
 
-    def __init__(self, repository: InterviewSessionRepository, engine: InterviewEngine) -> None:
+    def __init__(
+        self,
+        repository: InterviewSessionRepository,
+        engine: InterviewEngine,
+        memory: MemoryService | None = None,
+    ) -> None:
         self.repository = repository
         self.engine = engine
+        self.memory = memory or NoopMemoryService()
 
     def start(
         self,
@@ -144,7 +159,8 @@ class InterviewSessionService:
             raise
 
         self.repository.refresh(session)
-        return self._to_response(result)
+        self._write_memory(session, result.memory_observations)
+        return self._to_response(session, result)
 
     def continue_session(
         self,
@@ -193,7 +209,30 @@ class InterviewSessionService:
             raise
 
         self.repository.refresh(session)
-        return self._to_response(result)
+        self._write_memory(session, result.memory_observations)
+        return self._to_response(session, result)
+
+    def _write_memory(
+        self,
+        session: InterviewSession,
+        observations: list[MemoryObservation],
+    ) -> None:
+        member = session.candidate_data.get("member")
+        candidate_id = str(member.get("id", "unknown")) if isinstance(member, dict) else "unknown"
+        for observation in observations:
+            try:
+                self.memory.write_observation(
+                    session_id=session.session_id,
+                    candidate_id=candidate_id,
+                    observation=observation,
+                )
+            except Exception as exc:  # noqa: BLE001 - SQL success must survive memory outages
+                logger.warning(
+                    "Interview memory write failed session=%s candidate=%s error_type=%s",
+                    session.session_id,
+                    candidate_id,
+                    type(exc).__name__,
+                )
 
     @staticmethod
     def _apply_engine_result(session: InterviewSession, result: InterviewEngineResult) -> None:
@@ -216,6 +255,29 @@ class InterviewSessionService:
             setattr(session, field_name, value)
 
     @staticmethod
-    def _to_response(result: InterviewEngineResult) -> InterviewResponse:
+    def _to_response(
+        session: InterviewSession,
+        result: InterviewEngineResult,
+    ) -> InterviewResponse:
         feedback: Feedback | None = result.feedback
-        return InterviewResponse(reply=result.reply, done=result.done, feedback=feedback)
+        plan = session.completion_state.get("interviewPlan", {})
+        minimum_questions = int(plan.get("minimumQuestions", 8))
+        minimum_days = int(plan.get("minimumDays", 4))
+        challenge = (
+            ChallengeMetadata.model_validate(session.current_challenge)
+            if session.current_challenge is not None
+            else None
+        )
+        progress = InterviewProgress(
+            questionsAsked=session.question_count,
+            minimumQuestions=minimum_questions,
+            daysCovered=len(set(session.covered_curriculum_days)),
+            minimumDays=minimum_days,
+        )
+        return InterviewResponse(
+            reply=result.reply,
+            done=result.done,
+            feedback=feedback,
+            challenge=challenge,
+            progress=progress,
+        )

@@ -14,6 +14,8 @@ from app.config import load_environment
 from app.db.database import Database
 from app.interview.engine import AdaptiveInterviewEngine
 from app.llm.factory import build_llm_provider
+from app.memory.base import MemoryService
+from app.memory.factory import build_memory_service
 from app.services.interviewer import InterviewEngine, InterviewEngineError
 from app.services.session import InterviewSessionError
 
@@ -37,9 +39,11 @@ def create_app(
     *,
     database_url: str | None = None,
     interview_engine: InterviewEngine | None = None,
+    memory_service: MemoryService | None = None,
 ) -> FastAPI:
     database = Database(database_url)
-    engine = interview_engine or AdaptiveInterviewEngine(build_llm_provider())
+    memory = memory_service or build_memory_service()
+    engine = interview_engine or AdaptiveInterviewEngine(build_llm_provider(), memory)
 
     @asynccontextmanager
     async def lifespan(app: FastAPI) -> AsyncIterator[None]:
@@ -50,6 +54,7 @@ def create_app(
     application = FastAPI(title="BuzzPrep API", version="0.3.0", lifespan=lifespan)
     application.state.database = database
     application.state.interview_engine = engine
+    application.state.memory_service = memory
 
     application.add_middleware(
         CORSMiddleware,

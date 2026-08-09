@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from pydantic import BaseModel, Field, field_validator, model_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 from app.schemas.workspace import SerializedWorkspace
 
@@ -46,10 +46,33 @@ class Feedback(BaseModel):
     next: list[str]
 
 
+class ChallengeMetadata(BaseModel):
+    model_config = ConfigDict(populate_by_name=True)
+
+    curriculum_day: int = Field(alias="curriculumDay", ge=1, le=31)
+    topic: str = Field(min_length=1)
+    intent: str = Field(min_length=1)
+    difficulty: str = Field(min_length=1)
+    interaction_types: list[str] = Field(alias="interactionTypes", min_length=1)
+    question_kind: str = Field(alias="questionKind", min_length=1)
+    challenge_summary: str | None = Field(default=None, alias="challengeSummary")
+
+
+class InterviewProgress(BaseModel):
+    model_config = ConfigDict(populate_by_name=True)
+
+    questions_asked: int = Field(alias="questionsAsked", ge=0)
+    minimum_questions: int = Field(alias="minimumQuestions", ge=1)
+    days_covered: int = Field(alias="daysCovered", ge=0)
+    minimum_days: int = Field(alias="minimumDays", ge=1)
+
+
 class InterviewResponse(BaseModel):
     reply: str
     done: bool = False
     feedback: Feedback | None = None
+    challenge: ChallengeMetadata | None = None
+    progress: InterviewProgress | None = None
 
 
 class ErrorDetail(BaseModel):

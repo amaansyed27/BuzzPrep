@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 from collections import Counter
 from collections.abc import Sequence
 from typing import Any, Literal
@@ -22,6 +23,7 @@ from app.interview.prompts import (
     QUESTION_SYSTEM_PROMPT,
 )
 from app.llm.base import LLMError, LLMProvider, LLMStructuredOutputError
+from app.memory.base import MemoryObservation, MemoryService, NoopMemoryService
 from app.models.interview import InterviewSession, InterviewTurn
 from app.planning.interview import build_interview_plan
 from app.planning.models import MINIMUM_DAYS, MINIMUM_QUESTIONS, InterviewPlan, PlannedArea
@@ -40,6 +42,8 @@ PLAN_STATE_KEY = "interviewPlan"
 EVALUATIONS_STATE_KEY = "turnEvaluations"
 MINIMUM_QUESTION_COUNT = MINIMUM_QUESTIONS
 MINIMUM_COVERED_DAYS = MINIMUM_DAYS
+
+logger = logging.getLogger(__name__)
 
 
 def completion_eligible(question_count: int, covered_days: Sequence[int]) -> bool:
@@ -132,8 +136,9 @@ def _question_counts_by_day(conversation: Sequence[InterviewTurn]) -> Counter[in
 class AdaptiveInterviewEngine:
     """LangGraph-controlled adaptive interviewer backed by the Issue #1 SQL state boundary."""
 
-    def __init__(self, llm: LLMProvider) -> None:
+    def __init__(self, llm: LLMProvider, memory: MemoryService | None = None) -> None:
         self.llm = llm
+        self.memory = memory or NoopMemoryService()
         self.catalog = load_curriculum()
         self.graph = self._build_graph()
 
@@ -187,6 +192,7 @@ class AdaptiveInterviewEngine:
     def _build_graph(self):
         graph = StateGraph(InterviewGraphState)
         graph.add_node("prepare", self._prepare)
+        graph.add_node("retrieve_memory", self._retrieve_memory)
         graph.add_node("evaluate_answer", self._evaluate_answer)
         graph.add_node("adaptive_decision", self._adaptive_decision)
         graph.add_node("completion_gate", self._completion_gate)
@@ -195,8 +201,9 @@ class AdaptiveInterviewEngine:
         graph.add_node("finalize_feedback", self._finalize_feedback)
 
         graph.add_edge(START, "prepare")
+        graph.add_edge("prepare", "retrieve_memory")
         graph.add_conditional_edges(
-            "prepare",
+            "retrieve_memory",
             self._route_after_prepare,
             {"start": "select_area", "respond": "evaluate_answer"},
         )
@@ -228,6 +235,31 @@ class AdaptiveInterviewEngine:
                 plan = InterviewPlan.model_validate(plan_payload)
         return {"profile": profile, "plan": plan}
 
+    def _retrieve_memory(self, state: InterviewGraphState) -> dict[str, Any]:
+        session = state["session"]
+        profile = state["profile"]
+        query_parts = [
+            f"curriculum day {session.current_curriculum_day}" if session.current_curriculum_day else "interview",
+            session.current_topic or profile.job_role,
+            state.get("candidate_answer", "")[:300],
+        ]
+        try:
+            records = self.memory.retrieve_relevant(
+                session_id=session.session_id,
+                candidate_id=profile.candidate_id,
+                query=" | ".join(part for part in query_parts if part),
+                limit=4,
+            )
+        except Exception as exc:  # noqa: BLE001 - optional memory must never stop an interview
+            logger.warning(
+                "Interview memory retrieval failed session=%s candidate=%s error_type=%s",
+                session.session_id,
+                profile.candidate_id,
+                type(exc).__name__,
+            )
+            records = []
+        return {"relevant_memories": [record.text for record in records]}
+
     @staticmethod
     def _route_after_prepare(state: InterviewGraphState) -> Literal["start", "respond"]:
         return state["mode"]
@@ -244,6 +276,7 @@ class AdaptiveInterviewEngine:
             "transcript": _transcript_context(state.get("conversation", [])),
             "workspace_facts": state.get("workspace_facts", []),
             "workspace_evidence": _workspace_context(state.get("workspace")),
+            "relevant_memories": state.get("relevant_memories", []),
         }
         evaluation = self.llm.generate_structured(
             task="evaluate_answer",
@@ -261,6 +294,7 @@ class AdaptiveInterviewEngine:
             "covered_curriculum_days": state["session"].covered_curriculum_days,
             "minimum_questions": MINIMUM_QUESTION_COUNT,
             "minimum_days": MINIMUM_COVERED_DAYS,
+            "relevant_memories": state.get("relevant_memories", []),
         }
         decision = self.llm.generate_structured(
             task="adaptive_decision",
@@ -334,6 +368,7 @@ class AdaptiveInterviewEngine:
             "transcript": _transcript_context(state.get("conversation", [])),
             "workspace_facts": facts,
             "workspace_evidence": _workspace_context(state.get("workspace")),
+            "relevant_memories": state.get("relevant_memories", []),
         }
         generated = self.llm.generate_structured(
             task="generate_question",
@@ -380,6 +415,7 @@ class AdaptiveInterviewEngine:
                 "difficulty": area.difficulty.value,
                 "questionKind": generated.kind.value,
             },
+            memory_observations=self._memory_observations(state),
         )
         return {"result": result}
 
@@ -395,6 +431,7 @@ class AdaptiveInterviewEngine:
             "evaluations": evaluations,
             "transcript": _transcript_context(state.get("conversation", []), limit=16),
             "workspace_facts": state.get("workspace_facts", []),
+            "relevant_memories": state.get("relevant_memories", []),
         }
         generated = self.llm.generate_structured(
             task="final_feedback",
@@ -426,6 +463,7 @@ class AdaptiveInterviewEngine:
             state_patch=InterviewStatePatch(**patch_values),
             turn_kind="completion",
             turn_payload={"questionCount": session.question_count},
+            memory_observations=self._memory_observations(state),
         )
         return {"result": result}
 
@@ -483,3 +521,28 @@ class AdaptiveInterviewEngine:
         if decision is not None:
             completion_state["lastDecision"] = decision.model_dump(mode="json")
         return completion_state
+
+    @staticmethod
+    def _memory_observations(state: InterviewGraphState) -> list[MemoryObservation]:
+        evaluation = state.get("evaluation")
+        area = state.get("current_area")
+        if evaluation is None or area is None:
+            return []
+
+        facts = state.get("workspace_facts", [])[-3:]
+        missing = "; ".join(evaluation.missing_points[:3]) or "no material gap recorded"
+        workspace_note = f" Workspace evidence: {'; '.join(facts)}." if facts else ""
+        source = "answer_and_workspace" if facts else "answer"
+        text = (
+            f"Candidate gave a {evaluation.strength.value} response on {area.topic}. "
+            f"Follow-up signal: {evaluation.follow_up_recommendation}. Missing: {missing}."
+            f"{workspace_note}"
+        )
+        return [
+            MemoryObservation(
+                day=area.day,
+                turn_number=max(1, state["session"].turn_count),
+                source=source,
+                text=text,
+            )
+        ]

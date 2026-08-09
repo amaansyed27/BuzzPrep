@@ -18,6 +18,7 @@ class InterviewGraphState(TypedDict, total=False):
     candidate_answer: str
     workspace: SerializedWorkspace | None
     workspace_facts: list[str]
+    relevant_memories: list[str]
     profile: CandidateProfile
     plan: InterviewPlan
     current_area: PlannedArea

@@ -5,6 +5,7 @@ from typing import Annotated, Any, Protocol
 
 from pydantic import BaseModel, Field, model_validator
 
+from app.memory.base import MemoryObservation
 from app.models.interview import InterviewSession, InterviewTurn
 from app.schemas.interview import Feedback
 from app.schemas.workspace import SerializedWorkspace
@@ -49,6 +50,7 @@ class InterviewEngineResult(BaseModel):
     state_patch: InterviewStatePatch = Field(default_factory=InterviewStatePatch)
     turn_kind: str = "message"
     turn_payload: dict[str, Any] | None = None
+    memory_observations: list[MemoryObservation] = Field(default_factory=list)
 
     @model_validator(mode="after")
     def validate_feedback(self) -> InterviewEngineResult:
