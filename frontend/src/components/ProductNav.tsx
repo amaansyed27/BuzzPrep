@@ -9,8 +9,7 @@ export default function ProductNav({ transparent = false }: { transparent?: bool
   return (
     <header className={`product-nav ${transparent ? "transparent" : ""}`}>
       <Link className="brand-lockup" to="/" aria-label="BuzzPrep home">
-        <span className="brand-mark">B</span>
-        <span>BUZZPREP</span>
+        <span>BuzzPrep</span>
       </Link>
       {user ? (
         <>

@@ -52,7 +52,7 @@ export default function AuthPage() {
     <main className="auth-page">
       <section className="auth-visual">
         <Link className="brand-lockup" to="/" aria-label="BuzzPrep home">
-          <span className="brand-mark">B</span><span>BUZZPREP</span>
+          <span>BuzzPrep</span>
         </Link>
         <div>
           <p className="eyebrow"><ShieldCheck size={14} /> Evidence-aware prep</p>
@@ -114,7 +114,7 @@ export default function AuthPage() {
                 <span>{state === "sending" ? "Sending secure link…" : mode === "signin" ? "Email me a sign-in link" : "Create account with Magic Link"}</span>
                 {state === "sending" ? <LoaderCircle className="spin" size={18} /> : <ArrowRight size={18} />}
               </button>
-              <p className="auth-terms">By continuing, you agree to use BuzzPrep for transparent technical practice. Active prep records workspace and focus events—not camera, microphone, or screen video.</p>
+              <p className="auth-terms">By continuing, you agree to use BuzzPrep for transparent technical practice. Active prep records workspace and focus events—not camera, passive microphone, or screen video. Voice input is opt-in.</p>
             </form>
           )}
         </div>

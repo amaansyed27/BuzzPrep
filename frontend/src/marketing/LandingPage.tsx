@@ -19,7 +19,7 @@ import {
   SlidersHorizontal,
   TerminalSquare,
 } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import ProductNav from "../components/ProductNav";
 import ProductSequence from "./ProductSequence";
@@ -60,8 +60,21 @@ function useScrollReveal() {
 
 export default function LandingPage() {
   const [renderer, setRenderer] = useState(0);
+  const [reducedMotion] = useState(() => window.matchMedia("(prefers-reduced-motion: reduce)").matches);
+  const proofVideoRef = useRef<HTMLVideoElement>(null);
   useScrollReveal();
   const RendererIcon = rendererModes[renderer].icon;
+
+  useEffect(() => {
+    const video = proofVideoRef.current;
+    if (!video || reducedMotion) return;
+    const observer = new IntersectionObserver(([entry]) => {
+      if (entry.isIntersecting) void video.play().catch(() => undefined);
+      else video.pause();
+    }, { threshold: 0.2 });
+    observer.observe(video);
+    return () => observer.disconnect();
+  }, [reducedMotion]);
 
   return (
     <main className="landing-page">
@@ -96,6 +109,42 @@ export default function LandingPage() {
           The interviewer adapts not only to what you say, but to what you actually
           <em> build, configure, connect, inspect, and debug.</em>
         </h2>
+      </section>
+
+      <section className="product-proof-section" data-reveal>
+        <header>
+          <div>
+            <p className="eyebrow"><MonitorUp size={14} /> Real product, in motion</p>
+            <h2>See the prep react before you start one.</h2>
+          </div>
+          <p>Short captures from the live product—not a concept render.</p>
+        </header>
+        <div className="product-proof-grid">
+          <figure className="product-proof-loop">
+            <video
+              ref={proofVideoRef}
+              autoPlay={!reducedMotion}
+              muted
+              loop
+              playsInline
+              poster="/media/adaptive-workspace-poster.jpg"
+              aria-label="Short recording of the BuzzPrep workspace adapting to a candidate action"
+            >
+              <source src="/media/adaptive-workspace.mp4" type="video/mp4" />
+            </video>
+            <figcaption><span>01 / ADAPTIVE LOOP</span><strong>Constraint → workspace action → follow-up</strong></figcaption>
+          </figure>
+          <div className="product-proof-stills">
+            <figure>
+              <img src="/media/candidate-setup.jpg" alt="BuzzPrep candidate profile selection screen" loading="lazy" />
+              <figcaption><span>02 / SETUP</span><strong>Start from a real candidate profile</strong></figcaption>
+            </figure>
+            <figure>
+              <img src="/media/desktop-readiness.jpg" alt="BuzzPrep focused session readiness screen" loading="lazy" />
+              <figcaption><span>03 / READINESS</span><strong>Enter a transparent focused session</strong></figcaption>
+            </figure>
+          </div>
+        </div>
       </section>
 
       <section className="narrative-section" id="how-it-works">
@@ -215,7 +264,7 @@ export default function LandingPage() {
           <p>
             Active prep uses a larger technical workspace. BuzzPrep records only transparent
             focus changes and the actions you intentionally make in the workspace—never webcam,
-            microphone, screen recording, or biometrics.
+            screen recording, or biometrics. Optional voice input is browser-controlled and user-triggered.
           </p>
         </div>
       </section>
@@ -227,7 +276,7 @@ export default function LandingPage() {
       </section>
 
       <footer className="landing-footer">
-        <Link className="brand-lockup compact" to="/"><span className="brand-mark">B</span><span>BUZZPREP</span></Link>
+        <Link className="brand-lockup compact" to="/"><span>BuzzPrep</span></Link>
         <p>Adaptive technical preparation grounded in real workspace evidence.</p>
         <div><Link to="/auth?mode=signin">Sign in</Link><Link to="/demo/setup">Demo</Link><a href="https://github.com/amaansyed27/BuzzPrep">GitHub</a></div>
       </footer>

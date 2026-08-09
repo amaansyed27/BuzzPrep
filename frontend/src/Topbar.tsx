@@ -10,8 +10,7 @@ export default function Topbar() {
   return (
     <header className="interview-topbar">
       <div className="brand-lockup compact">
-        <span className="brand-mark">B</span>
-        <span>BUZZPREP</span>
+        <span>BuzzPrep</span>
       </div>
       <div className="topbar-context">
         <span className="live-indicator"><CircleDot size={14} /> LIVE INTERVIEW</span>

@@ -41,7 +41,7 @@ export default function ResultsScreen() {
   return (
     <main className="results-screen">
       <header className="setup-topbar results-topbar">
-        <div className="brand-lockup compact"><span className="brand-mark">B</span><span>BUZZPREP</span></div>
+        <div className="brand-lockup compact"><span>BuzzPrep</span></div>
         <span className="session-chip">Session {sessionId?.slice(0, 8)}</span>
       </header>
 

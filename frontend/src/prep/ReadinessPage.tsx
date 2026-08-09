@@ -34,7 +34,7 @@ export default function ReadinessPage() {
   if (!candidate || preparedSessionId !== sessionId) {
     return (
       <main className="readiness-missing">
-        <span className="brand-mark">B</span><h1>Select a candidate before starting.</h1>
+        <h1>Select a candidate before starting.</h1>
         <Link to={demo ? "/demo/setup" : "/prep/new"}>Choose a profile</Link>
       </main>
     );
@@ -57,7 +57,7 @@ export default function ReadinessPage() {
 
   return (
     <main className="readiness-page">
-      <header><Link className="brand-lockup" to="/"><span className="brand-mark">B</span><span>BUZZPREP</span></Link><span>PREP READINESS</span></header>
+      <header><Link className="brand-lockup" to="/"><span>BuzzPrep</span></Link><span>PREP READINESS</span></header>
       <section>
         <div className="readiness-copy">
           <Link to={demo ? "/demo/setup" : "/prep/new"}><ArrowLeft size={15} /> Change candidate</Link>
@@ -74,7 +74,7 @@ export default function ReadinessPage() {
           <label className="readiness-confirm"><input type="checkbox" checked={ready} onChange={(event) => setReady(event.target.checked)} /><span><Check size={14} /></span><p>I understand how focus and workspace evidence are recorded.</p></label>
           {error ? <div className="readiness-error" role="alert">{error.error.message}</div> : null}
           <button type="button" className="readiness-start" onClick={() => void begin()} disabled={!ready || busy}>{busy ? <><LoaderCircle className="spin" size={17} /> Preparing first challenge…</> : <>Enter focused prep <ArrowRight size={17} /></>}</button>
-          <p className="readiness-privacy">No webcam, microphone, screen recording, or biometric monitoring.</p>
+          <p className="readiness-privacy">No webcam, passive microphone recording, screen recording, or biometric monitoring. Voice input runs only when you press the mic.</p>
         </div>
       </section>
     </main>

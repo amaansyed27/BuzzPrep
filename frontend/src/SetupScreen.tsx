@@ -50,8 +50,7 @@ export default function SetupScreen() {
     <main className="setup-screen">
       <header className="setup-topbar">
         <Link className="brand-lockup" to="/" aria-label="BuzzPrep home">
-          <span className="brand-mark">B</span>
-          <span>BUZZPREP</span>
+          <span>BuzzPrep</span>
         </Link>
         <span className="demo-badge"><ShieldCheck size={14} /> {demo ? "Public demo" : "New authenticated prep"}</span>
       </header>

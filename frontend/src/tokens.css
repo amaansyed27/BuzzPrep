@@ -1,3 +1,5 @@
+@import url("https://fonts.googleapis.com/css2?family=Bungee&display=swap");
+
 :root {
   --bg: #080b0e;
   --bg-raised: #0c1116;
@@ -12,12 +14,14 @@
   --line-strong: #2d3944;
   --amber: #f4b942;
   --amber-soft: rgba(244, 185, 66, 0.12);
-  --cyan: #45d1c2;
-  --cyan-soft: rgba(69, 209, 194, 0.1);
+  --cyan: #aaa7a2;
+  --cyan-soft: rgba(170, 167, 162, 0.1);
   --red: #ff7b75;
   --red-soft: rgba(255, 123, 117, 0.1);
   --green: #7fdb9c;
-  --blue: #77a8ff;
+  --blue: #aaa7a2;
+  --codex-gray: #aaa7a2;
+  --font-brand: "Bungee", "Arial Black", Impact, sans-serif;
   --font-sans: Inter, "Segoe UI", system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
   --font-mono: "Cascadia Code", "SFMono-Regular", Consolas, monospace;
   --shadow: 0 18px 55px rgba(0, 0, 0, 0.32);
