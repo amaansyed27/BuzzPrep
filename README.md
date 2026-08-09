@@ -1,6 +1,6 @@
 # BuzzPrep
 
-**BuzzPrep** is Team **BuzzBees'** submission for the **The Interview Agent** hackathon: an adaptive technical interview simulator that evaluates both what a candidate **says** and what they **do** in a structured engineering workspace.
+**BuzzPrep** is Team **BuzzBees'** submission for **The Interview Agent** hackathon: an adaptive technical interview simulator that evaluates both what a candidate **says** and what they **do** in a structured engineering workspace.
 
 The core differentiator is simple: **BuzzPrep is not only a chatbot.** The interviewer can adapt to a candidate's explanation, curriculum history, and machine-readable workspace actions such as connecting components, changing configuration, editing code or prompts, running tasks, and submitting evidence.
 
