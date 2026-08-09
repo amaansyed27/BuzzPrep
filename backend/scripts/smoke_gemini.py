@@ -9,6 +9,8 @@ from pathlib import Path
 from fastapi.testclient import TestClient
 
 from app.config import load_environment
+from app.interview.engine import AdaptiveInterviewEngine
+from app.llm.gemini import GeminiLLMProvider
 from app.memory.base import NoopMemoryService
 from app.profiling.loader import load_candidates
 
@@ -49,6 +51,10 @@ def main() -> int:
         database_path = Path(directory) / "smoke.db"
         application = create_app(
             database_url=f"sqlite:///{database_path.as_posix()}",
+            interview_engine=AdaptiveInterviewEngine(
+                GeminiLLMProvider(api_key=api_key, model=model),
+                NoopMemoryService(),
+            ),
             memory_service=NoopMemoryService(),
         )
         with TestClient(application) as client:

@@ -20,6 +20,15 @@ class LLMProviderError(LLMError):
     pass
 
 
+class LLMProviderRequestError(LLMProviderError):
+    """Non-retryable provider request/configuration failure.
+
+    Fallback routing intentionally does not catch this error. A rejected schema,
+    malformed provider request, or invalid credential must be fixed rather than
+    hidden by another provider.
+    """
+
+
 class LLMStructuredOutputError(LLMError):
     pass
 

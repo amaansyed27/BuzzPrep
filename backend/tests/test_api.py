@@ -127,10 +127,10 @@ def test_unknown_session_id_returns_structured_404(client: TestClient) -> None:
 def test_malformed_start_request_returns_structured_422(client: TestClient) -> None:
     response = client.post(
         "/api/interview",
-        json={"sessionId": "bad-start", "candidate": {}},
+        json={"sessionId": "bad-start", "candidate": {"member": {}}},
     )
     assert response.status_code == 422
-    assert response.json()["error"]["code"] == "invalid_request"
+    assert response.json()["error"]["code"] == "invalid_candidate"
 
 
 def test_malformed_conversation_request_returns_structured_422(client: TestClient) -> None:

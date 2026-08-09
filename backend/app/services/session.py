@@ -13,13 +13,34 @@ from app.models.interview import InterviewSession, InterviewTurn
 from app.schemas.interview import (
     ChallengeMetadata,
     Feedback,
+    IntegrityTelemetryEvent,
+    InterviewHistoryDetail,
+    InterviewHistoryItem,
     InterviewProgress,
     InterviewResponse,
+    InterviewTranscriptMessage,
 )
 from app.schemas.workspace import SerializedWorkspace
 from app.services.interviewer import InterviewEngine, InterviewEngineResult, InterviewStatePatch
 
 logger = logging.getLogger(__name__)
+
+PUBLIC_EVALUATOR_CANDIDATE: dict[str, Any] = {
+    "member": {
+        "id": "PUBLIC-EVALUATOR",
+        "name": "Public evaluator",
+        "jobRole": "Technical candidate",
+        "yearsExperience": 0,
+        "education": None,
+        "status": "evaluation",
+    },
+    "missions": [],
+    "signals": {
+        "commitDays": 0,
+        "missionsCompleted": 0,
+        "missionsFirstTry": 0,
+    },
+}
 
 
 def utcnow() -> datetime:
@@ -59,6 +80,22 @@ class InterviewSessionRepository:
     def get(self, session_id: str) -> InterviewSession | None:
         statement = select(InterviewSession).where(InterviewSession.session_id == session_id)
         return self.db.scalar(statement)
+
+    def get_for_owner(self, session_id: str, owner_id: str) -> InterviewSession | None:
+        statement = select(InterviewSession).where(
+            InterviewSession.session_id == session_id,
+            InterviewSession.owner_id == owner_id,
+        )
+        return self.db.scalar(statement)
+
+    def list_for_owner(self, owner_id: str, *, limit: int = 50) -> list[InterviewSession]:
+        statement = (
+            select(InterviewSession)
+            .where(InterviewSession.owner_id == owner_id)
+            .order_by(InterviewSession.updated_at.desc())
+            .limit(limit)
+        )
+        return list(self.db.scalars(statement).all())
 
     def add_session(self, session: InterviewSession) -> None:
         self.db.add(session)
@@ -127,11 +164,20 @@ class InterviewSessionService:
         session_id: str,
         candidate: dict[str, Any],
         workspace: SerializedWorkspace | None = None,
+        owner_id: str | None = None,
+        integrity_events: list[IntegrityTelemetryEvent] | None = None,
     ) -> InterviewResponse:
         if self.repository.get(session_id) is not None:
             raise SessionAlreadyExistsError(f"Session '{session_id}' already exists")
 
-        session = InterviewSession(session_id=session_id, candidate_data=candidate)
+        candidate_data = candidate or PUBLIC_EVALUATOR_CANDIDATE
+
+        session = InterviewSession(
+            session_id=session_id,
+            candidate_data=candidate_data,
+            owner_id=owner_id,
+            integrity_telemetry=self._serialize_integrity_events(integrity_events),
+        )
         self.repository.add_session(session)
         try:
             self.repository.flush()
@@ -167,9 +213,13 @@ class InterviewSessionService:
         session_id: str,
         message: str,
         workspace: SerializedWorkspace | None = None,
+        owner_id: str | None = None,
+        integrity_events: list[IntegrityTelemetryEvent] | None = None,
     ) -> InterviewResponse:
         session = self.repository.get(session_id)
         if session is None:
+            raise SessionNotFoundError(f"Session '{session_id}' does not exist")
+        if session.owner_id is not None and session.owner_id != owner_id:
             raise SessionNotFoundError(f"Session '{session_id}' does not exist")
         if session.status == "completed":
             raise SessionCompletedError(f"Session '{session_id}' is already completed")
@@ -180,6 +230,11 @@ class InterviewSessionService:
             else None
         )
         try:
+            if integrity_events:
+                session.integrity_telemetry = [
+                    *session.integrity_telemetry,
+                    *self._serialize_integrity_events(integrity_events),
+                ][-500:]
             self.repository.add_turn(
                 session_id,
                 role="candidate",
@@ -211,6 +266,12 @@ class InterviewSessionService:
         self.repository.refresh(session)
         self._write_memory(session, result.memory_observations)
         return self._to_response(session, result)
+
+    @staticmethod
+    def _serialize_integrity_events(
+        events: list[IntegrityTelemetryEvent] | None,
+    ) -> list[dict[str, Any]]:
+        return [event.model_dump(mode="json") for event in events or []]
 
     def _write_memory(
         self,
@@ -280,4 +341,61 @@ class InterviewSessionService:
             feedback=feedback,
             challenge=challenge,
             progress=progress,
+        )
+
+    def list_history(self, owner_id: str) -> list[InterviewHistoryItem]:
+        return [self._to_history_item(session) for session in self.repository.list_for_owner(owner_id)]
+
+    def get_history(self, owner_id: str, session_id: str) -> InterviewHistoryDetail:
+        session = self.repository.get_for_owner(session_id, owner_id)
+        if session is None:
+            raise SessionNotFoundError(f"Session '{session_id}' does not exist")
+        turns = self.repository.list_turns(session_id)
+        item = self._to_history_item(session)
+        challenge = (
+            ChallengeMetadata.model_validate(session.current_challenge)
+            if session.current_challenge is not None
+            else None
+        )
+        feedback_value = session.completion_state.get("feedback")
+        feedback = Feedback.model_validate(feedback_value) if feedback_value is not None else None
+        plan = session.completion_state.get("interviewPlan", {})
+        return InterviewHistoryDetail(
+            **item.model_dump(),
+            candidate=session.candidate_data,
+            challenge=challenge,
+            progress=InterviewProgress(
+                questionsAsked=session.question_count,
+                minimumQuestions=int(plan.get("minimumQuestions", 8)),
+                daysCovered=len(set(session.covered_curriculum_days)),
+                minimumDays=int(plan.get("minimumDays", 4)),
+            ),
+            feedback=feedback,
+            messages=[
+                InterviewTranscriptMessage(
+                    sequence=turn.sequence,
+                    role=turn.role,
+                    text=turn.content,
+                )
+                for turn in turns
+                if turn.role in {"interviewer", "candidate"}
+            ],
+        )
+
+    @staticmethod
+    def _to_history_item(session: InterviewSession) -> InterviewHistoryItem:
+        member = session.candidate_data.get("member", {})
+        return InterviewHistoryItem(
+            sessionId=session.session_id,
+            status=session.status,
+            candidateName=str(member.get("name", "Candidate")),
+            candidateRole=str(member.get("jobRole", "Technical candidate")),
+            createdAt=session.created_at,
+            lastActivity=session.updated_at,
+            completedAt=session.completed_at,
+            questionsAsked=session.question_count,
+            daysCovered=len(set(session.covered_curriculum_days)),
+            currentTopic=session.current_topic,
+            resultAvailable=session.status == "completed"
+            and "feedback" in session.completion_state,
         )

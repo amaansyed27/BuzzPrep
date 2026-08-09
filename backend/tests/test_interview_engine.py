@@ -52,6 +52,17 @@ def test_hard_completion_gate_is_python_owned() -> None:
     assert completion_eligible(8, [1, 8, 16, 31]) is True
 
 
+def test_public_evaluator_can_start_with_empty_candidate(client: TestClient) -> None:
+    response = client.post(
+        "/api/interview",
+        json={"sessionId": "public-empty-candidate", "candidate": {}},
+    )
+
+    assert response.status_code == 200
+    assert response.json()["done"] is False
+    assert response.json()["progress"]["questionsAsked"] == 1
+
+
 def test_fake_finish_requests_cannot_end_interview_early(tmp_path: Path) -> None:
     finish = AdaptiveDecision(action=AdaptiveAction.FINISH, reason="finish now")
     provider = FakeLLMProvider(scripted={"adaptive_decision": [finish] * 8})
@@ -227,6 +238,35 @@ def test_malformed_workspace_is_a_structured_422(client: TestClient) -> None:
     assert response.json()["error"]["code"] == "invalid_request"
 
 
+def test_integrity_telemetry_is_optional_and_separate_from_semantic_evidence(
+    client: TestClient, database_url: str
+) -> None:
+    client.post(
+        "/api/interview",
+        json={"sessionId": "integrity", "candidate": candidate("CAND-001")},
+    )
+    response = client.post(
+        "/api/interview",
+        json={
+            "sessionId": "integrity",
+            "message": "I would test both the happy path and retry boundary.",
+            "integrityEvents": [
+                {"type": "tab_hidden", "timestamp": "2026-08-09T12:00:00Z"},
+                {"type": "tab_visible", "timestamp": "2026-08-09T12:00:02Z"},
+            ],
+        },
+    )
+
+    assert response.status_code == 200
+    session, turns = read_session(database_url, "integrity")
+    assert session is not None
+    assert [event["type"] for event in session.integrity_telemetry] == [
+        "tab_hidden",
+        "tab_visible",
+    ]
+    assert turns[-2].payload is None
+
+
 def test_sparse_candidate_covers_exact_four_demonstrated_days_before_finish(tmp_path: Path) -> None:
     database_url = f"sqlite:///{tmp_path / 'sparse.db'}"
     app = create_app(
@@ -318,18 +358,19 @@ def test_gemini_adapter_sends_json_schema_and_validates_response() -> None:
         return httpx.Response(
             200,
             json={
-                "candidates": [
+                "status": "completed",
+                "steps": [
                     {
-                        "content": {
-                            "parts": [
-                                {
-                                    "text": (
-                                        '{"question":"Why this design?","kind":"initial",'
-                                        '"challenge_summary":null,"workspace_fact_used":null}'
-                                    )
-                                }
-                            ]
-                        }
+                        "type": "model_output",
+                        "content": [
+                            {
+                                "type": "text",
+                                "text": (
+                                    '{"question":"Why this design?","kind":"initial",'
+                                    '"challenge_summary":null,"workspace_fact_used":null}'
+                                ),
+                            }
+                        ],
                     }
                 ]
             },
@@ -349,8 +390,11 @@ def test_gemini_adapter_sends_json_schema_and_validates_response() -> None:
         )
 
     assert result.question == "Why this design?"
-    response_format = captured["generationConfig"]["responseFormat"]["text"]
-    assert response_format["mimeType"] == "application/json"
+    assert captured["model"] == "gemini-test-model"
+    assert captured["store"] is False
+    response_format = captured["response_format"]
+    assert response_format["type"] == "text"
+    assert response_format["mime_type"] == "application/json"
     assert response_format["schema"]["type"] == "object"
     serialized_schema = json.dumps(response_format["schema"])
     assert "minLength" not in serialized_schema
@@ -431,18 +475,19 @@ def test_gemini_adapter_retries_transient_provider_failure() -> None:
             200,
             request=request,
             json={
-                "candidates": [
+                "status": "completed",
+                "steps": [
                     {
-                        "content": {
-                            "parts": [
-                                {
-                                    "text": (
-                                        '{"question":"Recovered","kind":"initial",'
-                                        '"challenge_summary":null,"workspace_fact_used":null}'
-                                    )
-                                }
-                            ]
-                        }
+                        "type": "model_output",
+                        "content": [
+                            {
+                                "type": "text",
+                                "text": (
+                                    '{"question":"Recovered","kind":"initial",'
+                                    '"challenge_summary":null,"workspace_fact_used":null}'
+                                ),
+                            }
+                        ],
                     }
                 ]
             },

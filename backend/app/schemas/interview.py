@@ -1,10 +1,26 @@
 from __future__ import annotations
 
-from typing import Any
+from datetime import datetime
+from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 from app.schemas.workspace import SerializedWorkspace
+
+
+class IntegrityTelemetryEvent(BaseModel):
+    """Transparent focus telemetry kept separate from semantic answer evidence."""
+
+    type: Literal[
+        "tab_hidden",
+        "tab_visible",
+        "window_blur",
+        "window_focus",
+        "fullscreen_enter",
+        "fullscreen_exit",
+        "reconnect",
+    ]
+    timestamp: datetime
 
 
 class InterviewRequest(BaseModel):
@@ -12,6 +28,7 @@ class InterviewRequest(BaseModel):
     candidate: dict[str, Any] | None = None
     message: str | None = None
     workspace: SerializedWorkspace | None = None
+    integrityEvents: list[IntegrityTelemetryEvent] = Field(default_factory=list, max_length=100)
 
     @field_validator("sessionId")
     @classmethod
@@ -28,8 +45,6 @@ class InterviewRequest(BaseModel):
 
         if is_start == is_turn:
             raise ValueError("Provide exactly one of candidate or message")
-        if self.candidate is not None and not self.candidate:
-            raise ValueError("candidate must be a non-empty object")
         if self.message is not None and not self.message.strip():
             raise ValueError("message must not be blank")
         return self
@@ -73,6 +88,40 @@ class InterviewResponse(BaseModel):
     feedback: Feedback | None = None
     challenge: ChallengeMetadata | None = None
     progress: InterviewProgress | None = None
+
+
+class InterviewHistoryItem(BaseModel):
+    model_config = ConfigDict(populate_by_name=True)
+
+    session_id: str = Field(alias="sessionId")
+    status: Literal["active", "completed"]
+    candidate_name: str = Field(alias="candidateName")
+    candidate_role: str = Field(alias="candidateRole")
+    created_at: datetime = Field(alias="createdAt")
+    last_activity: datetime = Field(alias="lastActivity")
+    completed_at: datetime | None = Field(default=None, alias="completedAt")
+    questions_asked: int = Field(alias="questionsAsked", ge=0)
+    days_covered: int = Field(alias="daysCovered", ge=0)
+    current_topic: str | None = Field(default=None, alias="currentTopic")
+    result_available: bool = Field(alias="resultAvailable")
+
+
+class InterviewHistoryList(BaseModel):
+    interviews: list[InterviewHistoryItem]
+
+
+class InterviewTranscriptMessage(BaseModel):
+    sequence: int
+    role: Literal["interviewer", "candidate"]
+    text: str
+
+
+class InterviewHistoryDetail(InterviewHistoryItem):
+    candidate: dict[str, Any]
+    challenge: ChallengeMetadata | None = None
+    progress: InterviewProgress
+    feedback: Feedback | None = None
+    messages: list[InterviewTranscriptMessage]
 
 
 class ErrorDetail(BaseModel):

@@ -8,6 +8,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 os.environ.setdefault("LLM_PROVIDER", "fake")
+os.environ["LLM_PROVIDER_CHAIN"] = ""
 os.environ.setdefault("BREETH_ENABLED", "false")
 
 from app.interview.engine import AdaptiveInterviewEngine

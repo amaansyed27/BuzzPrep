@@ -9,7 +9,10 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
+from app.api.history import router as history_router
 from app.api.interview import router as interview_router
+from app.auth.base import AuthError, AuthService
+from app.auth.factory import build_auth_service
 from app.config import configured_cors_origins, load_environment
 from app.db.database import Database
 from app.interview.engine import AdaptiveInterviewEngine
@@ -40,10 +43,12 @@ def create_app(
     database_url: str | None = None,
     interview_engine: InterviewEngine | None = None,
     memory_service: MemoryService | None = None,
+    auth_service: AuthService | None = None,
 ) -> FastAPI:
     database = Database(database_url)
     memory = memory_service or build_memory_service()
     engine = interview_engine or AdaptiveInterviewEngine(build_llm_provider(), memory)
+    auth = auth_service or build_auth_service()
 
     @asynccontextmanager
     async def lifespan(app: FastAPI) -> AsyncIterator[None]:
@@ -55,6 +60,7 @@ def create_app(
     application.state.database = database
     application.state.interview_engine = engine
     application.state.memory_service = memory
+    application.state.auth_service = auth
 
     application.add_middleware(
         CORSMiddleware,
@@ -88,6 +94,13 @@ def create_app(
             content={"error": {"code": exc.code, "message": exc.message}},
         )
 
+    @application.exception_handler(AuthError)
+    async def auth_error_handler(request: Request, exc: AuthError) -> JSONResponse:
+        return JSONResponse(
+            status_code=exc.status_code,
+            content={"error": {"code": exc.code, "message": exc.message}},
+        )
+
     @application.exception_handler(InterviewEngineError)
     async def interview_engine_error_handler(
         request: Request, exc: InterviewEngineError
@@ -102,6 +115,7 @@ def create_app(
         return {"status": "ok", "service": "buzzprep-api"}
 
     application.include_router(interview_router)
+    application.include_router(history_router)
     return application
 
 

@@ -4,7 +4,7 @@ import os
 from collections.abc import Iterator
 from contextlib import contextmanager
 
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, inspect, text
 from sqlalchemy.engine import Engine
 from sqlalchemy.engine.url import make_url
 from sqlalchemy.orm import Session, sessionmaker
@@ -73,6 +73,33 @@ class Database:
 
     def create_all(self) -> None:
         Base.metadata.create_all(self.engine)
+        self._apply_compatible_schema_upgrades()
+
+    def _apply_compatible_schema_upgrades(self) -> None:
+        """Apply additive upgrades for databases created before current metadata."""
+        with self.engine.begin() as connection:
+            inspector = inspect(connection)
+            if "interview_sessions" not in inspector.get_table_names():
+                return
+            columns = {column["name"] for column in inspector.get_columns("interview_sessions")}
+            if "owner_id" not in columns:
+                connection.execute(
+                    text("ALTER TABLE interview_sessions ADD COLUMN owner_id VARCHAR(255)")
+                )
+            if "integrity_telemetry" not in columns:
+                default_value = "'[]'::jsonb" if self.url.startswith("postgresql+") else "'[]'"
+                connection.execute(
+                    text(
+                        "ALTER TABLE interview_sessions ADD COLUMN integrity_telemetry "
+                        f"JSON NOT NULL DEFAULT {default_value}"
+                    )
+                )
+            connection.execute(
+                text(
+                    "CREATE INDEX IF NOT EXISTS ix_interview_sessions_owner_id "
+                    "ON interview_sessions (owner_id)"
+                )
+            )
 
     @contextmanager
     def session(self) -> Iterator[Session]:

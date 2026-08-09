@@ -5,6 +5,7 @@ from typing import Annotated
 
 from fastapi import APIRouter, Depends, Request
 
+from app.api.auth import optional_authenticated_user
 from app.schemas.interview import ErrorResponse, InterviewRequest, InterviewResponse
 from app.services.session import InterviewSessionRepository, InterviewSessionService
 
@@ -32,11 +33,26 @@ def get_interview_session_service(request: Request) -> Iterator[InterviewSession
 )
 def interview(
     payload: InterviewRequest,
+    request: Request,
     service: Annotated[InterviewSessionService, Depends(get_interview_session_service)],
 ) -> InterviewResponse:
+    user = optional_authenticated_user(request)
+    owner_id = user.user_id if user is not None else None
     if payload.is_start:
         assert payload.candidate is not None
-        return service.start(payload.sessionId, payload.candidate, payload.workspace)
+        return service.start(
+            payload.sessionId,
+            payload.candidate,
+            payload.workspace,
+            owner_id=owner_id,
+            integrity_events=payload.integrityEvents,
+        )
 
     assert payload.message is not None
-    return service.continue_session(payload.sessionId, payload.message, payload.workspace)
+    return service.continue_session(
+        payload.sessionId,
+        payload.message,
+        payload.workspace,
+        owner_id=owner_id,
+        integrity_events=payload.integrityEvents,
+    )

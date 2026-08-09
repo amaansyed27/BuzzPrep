@@ -11,6 +11,7 @@ from pydantic import ValidationError
 from app.llm.base import (
     LLMConfigurationError,
     LLMProviderError,
+    LLMProviderRequestError,
     LLMStructuredOutputError,
     ModelT,
 )
@@ -87,9 +88,10 @@ def _sanitize_provider_body(value: Any, api_key: str) -> Any:
 
 
 class GeminiLLMProvider:
-    """Gemini REST adapter using schema-constrained JSON responses."""
+    """Gemini Interactions REST adapter using schema-constrained JSON responses."""
 
-    endpoint_root = "https://generativelanguage.googleapis.com/v1beta/models"
+    endpoint = "https://generativelanguage.googleapis.com/v1beta/interactions"
+    provider_name = "gemini"
 
     def __init__(
         self,
@@ -123,32 +125,29 @@ class GeminiLLMProvider:
         self._validate_configuration()
         prompt = self._build_prompt(task, system_prompt, context)
         request_body = {
-            "contents": [{"parts": [{"text": prompt}]}],
-            "generationConfig": {
-                "responseFormat": {
-                    "text": {
-                        "mimeType": "application/json",
-                        "schema": normalize_gemini_schema(output_schema.model_json_schema()),
-                    }
-                },
-                "temperature": 0.2,
+            "model": self.model,
+            "input": prompt,
+            "response_format": {
+                "type": "text",
+                "mime_type": "application/json",
+                "schema": normalize_gemini_schema(output_schema.model_json_schema()),
             },
+            "store": False,
         }
-        url = f"{self.endpoint_root}/{self.model}:generateContent"
         last_error: Exception | None = None
 
         for attempt in range(1, self.max_attempts + 1):
             try:
                 if self._client is not None:
                     response = self._client.post(
-                        url,
+                        self.endpoint,
                         headers={"x-goog-api-key": self.api_key},
                         json=request_body,
                         timeout=self.timeout_seconds,
                     )
                 else:
                     response = httpx.post(
-                        url,
+                        self.endpoint,
                         headers={"x-goog-api-key": self.api_key},
                         json=request_body,
                         timeout=self.timeout_seconds,
@@ -168,8 +167,8 @@ class GeminiLLMProvider:
             except httpx.HTTPStatusError as exc:
                 status_code = exc.response.status_code
                 self._log_provider_error(task, attempt, exc.response)
-                if 400 <= status_code < 500 and status_code not in {408, 429}:
-                    raise LLMProviderError(
+                if 400 <= status_code < 500 and status_code not in {404, 408, 429}:
+                    raise LLMProviderRequestError(
                         "The LLM provider rejected the structured generation request"
                     ) from exc
                 last_error = exc
@@ -222,7 +221,32 @@ class GeminiLLMProvider:
     def _parse_response(response: httpx.Response, output_schema: type[ModelT]) -> ModelT:
         try:
             body = response.json()
-            text = body["candidates"][0]["content"]["parts"][0]["text"]
+            if not isinstance(body, Mapping):
+                raise TypeError("Gemini interaction response must be an object")
+
+            # The Interactions SDK exposes ``output_text`` while the REST resource
+            # returns model output content inside ``steps``. Accept the direct JSON
+            # example response too so the adapter remains compatible with both
+            # documented REST response representations.
+            output_text = body.get("output_text")
+            if isinstance(output_text, str):
+                text = output_text
+            else:
+                model_text: list[str] = []
+                for step in body.get("steps", []):
+                    if not isinstance(step, Mapping) or step.get("type") != "model_output":
+                        continue
+                    for content in step.get("content", []):
+                        if (
+                            isinstance(content, Mapping)
+                            and content.get("type") == "text"
+                            and isinstance(content.get("text"), str)
+                        ):
+                            model_text.append(content["text"])
+                if model_text:
+                    text = "".join(model_text)
+                else:
+                    return output_schema.model_validate(body)
             return output_schema.model_validate_json(text)
         except (KeyError, IndexError, TypeError, json.JSONDecodeError, ValidationError) as exc:
             raise LLMStructuredOutputError(
