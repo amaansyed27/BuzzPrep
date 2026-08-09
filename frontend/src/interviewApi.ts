@@ -1,77 +1,105 @@
-import type { InterviewResponse, ErrorResponse } from "./apiTypes";
-import { useInterviewStore } from "./useInterviewStore";
+import type {
+  CandidateRecord,
+  ContinueInterviewRequest,
+  ErrorResponse,
+  InterviewHistoryDetail,
+  InterviewHistoryList,
+  InterviewResponse,
+} from "./apiTypes";
+
+const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL ?? "").replace(/\/$/, "");
+const INTERVIEW_URL = `${API_BASE_URL}/api/interview`;
+const REQUEST_TIMEOUT_MS = 60_000;
+
+function fallbackError(code: string, message: string): ErrorResponse {
+  return { error: { code, message, details: null } };
+}
 
 async function parseError(response: Response): Promise<ErrorResponse> {
   try {
-    const body = await response.json();
-    return body as ErrorResponse;
-  } catch (e) {
-    return { error: { code: "unknown_error", message: `HTTP ${response.status}`, details: null } };
+    const body = (await response.json()) as Partial<ErrorResponse>;
+    if (body.error?.message) return body as ErrorResponse;
+  } catch {
+    // The server may have returned an HTML proxy or platform error.
   }
+  return fallbackError("http_error", `BuzzPrep API returned HTTP ${response.status}.`);
 }
 
-function networkErrorToErrorResponse(err: unknown): ErrorResponse {
-  const message = err instanceof Error ? err.message : String(err);
-  return { error: { code: "network_error", message, details: null } };
+function normalizeRequestError(error: unknown): ErrorResponse {
+  if (typeof error === "object" && error !== null && "error" in error) {
+    return error as ErrorResponse;
+  }
+  if (error instanceof DOMException && error.name === "AbortError") {
+    return fallbackError(
+      "request_timeout",
+      "The interviewer took too long to respond. Your answer was not added locally; try again when the service is ready.",
+    );
+  }
+  return fallbackError(
+    "network_error",
+    "BuzzPrep could not reach the interview API. Check the backend and try again.",
+  );
 }
 
-export async function startSession(sessionId: string, candidate: Record<string, unknown>) {
-  // Clear previous errors before making a request
-  try {
-    useInterviewStore.getState().setError(null);
-  } catch (_) {}
+function authHeaders(accessToken?: string | null): HeadersInit {
+  return {
+    "Content-Type": "application/json",
+    ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
+  };
+}
 
+async function postInterview(
+  payload: Record<string, unknown>,
+  accessToken?: string | null,
+): Promise<InterviewResponse> {
+  const controller = new AbortController();
+  const timeout = window.setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
   try {
-    const res = await fetch("/api/interview", {
+    const response = await fetch(INTERVIEW_URL, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ sessionId, candidate }),
+      headers: authHeaders(accessToken),
+      body: JSON.stringify(payload),
+      signal: controller.signal,
     });
-
-    if (!res.ok) {
-      const err = await parseError(res);
-      // surface typed error
-      throw err;
-    }
-
-    const data = (await res.json()) as InterviewResponse;
-    // clear any previous error after success
-    useInterviewStore.getState().setError(null);
-    return data;
-  } catch (err) {
-    // Normalize network / unexpected errors into ErrorResponse
-    const normalized = (err && (err as ErrorResponse).error) ? (err as ErrorResponse) : networkErrorToErrorResponse(err);
-    // store the error for UI
-    try { useInterviewStore.getState().setError(normalized); } catch (_) {}
-    throw normalized;
+    if (!response.ok) throw await parseError(response);
+    return (await response.json()) as InterviewResponse;
+  } catch (error) {
+    throw normalizeRequestError(error);
+  } finally {
+    window.clearTimeout(timeout);
   }
 }
 
-export async function sendMessage(sessionId: string, message: string) {
-  // Clear previous errors before making a request
-  try {
-    useInterviewStore.getState().setError(null);
-  } catch (_) {}
+export function startSession(
+  sessionId: string,
+  candidate: CandidateRecord,
+  accessToken?: string | null,
+) {
+  return postInterview({ sessionId, candidate }, accessToken);
+}
 
-  try {
-    const res = await fetch("/api/interview", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ sessionId, message }),
-    });
+export function continueSession(
+  request: ContinueInterviewRequest,
+  accessToken?: string | null,
+) {
+  return postInterview(request, accessToken);
+}
 
-    if (!res.ok) {
-      const err = await parseError(res);
-      throw err;
-    }
+async function getAuthenticated<T>(path: string, accessToken: string): Promise<T> {
+  const response = await fetch(`${API_BASE_URL}${path}`, {
+    headers: { Authorization: `Bearer ${accessToken}` },
+  });
+  if (!response.ok) throw await parseError(response);
+  return (await response.json()) as T;
+}
 
-    const data = (await res.json()) as InterviewResponse;
-    // clear any previous error after success
-    useInterviewStore.getState().setError(null);
-    return data;
-  } catch (err) {
-    const normalized = (err && (err as ErrorResponse).error) ? (err as ErrorResponse) : networkErrorToErrorResponse(err);
-    try { useInterviewStore.getState().setError(normalized); } catch (_) {}
-    throw normalized;
-  }
+export function getInterviewHistory(accessToken: string) {
+  return getAuthenticated<InterviewHistoryList>("/api/me/interviews", accessToken);
+}
+
+export function getInterviewDetail(sessionId: string, accessToken: string) {
+  return getAuthenticated<InterviewHistoryDetail>(
+    `/api/me/interviews/${encodeURIComponent(sessionId)}`,
+    accessToken,
+  );
 }

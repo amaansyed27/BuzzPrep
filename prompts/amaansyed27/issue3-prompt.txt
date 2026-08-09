@@ -1,0 +1,413 @@
+Yesterday 3:53 PM
+
+@
+GitHub
+ Work on the BuzzPrep repository:
+
+https://github.com/amaansyed27/BuzzPrep
+
+Task
+
+Implement Issue #3 — Backend: build candidate profiler and curriculum interview planner
+
+https://github.com/amaansyed27/BuzzPrep/issues/3
+
+This chat is exclusively for Issue #3.
+
+Do not implement:
+
+frontend work;
+LangGraph/LLM interviewer (#5);
+Breeth memory/evaluation (#7);
+deployment/integration (#9).
+
+Issue #1 is already merged and provides the persistent session/state layer. Build on top of it rather than replacing it.
+
+Before editing
+Inspect the current repository.
+Read Issue #3 completely.
+Read:
+hackathon-resources/candidates.json
+hackathon-resources/curriculum.json
+hackathon-resources/technical-spec.md
+docs/curriculum-interactions.md
+docs/product-concept.md
+Inspect the session/state interfaces created by Issue #1.
+Confirm the latest main includes the Issue #1 persistence work and Ruff cleanup.
+Fetch/update main.
+Create and work only on:
+issue/3-candidate-profiler-planner
+
+
+
+Do not commit directly to main.
+
+Goal
+
+Create the deterministic layer that converts:
+
+candidate profile
+        +
+31-day curriculum
+        ↓
+personalized interview plan
+
+
+
+This planner should decide what BuzzPrep should assess, before Issue #5 turns that plan into adaptive AI interview questions.
+
+The planner itself should be structured and deterministic.
+
+Do not use an LLM for core planning logic in this issue.
+
+Candidate profiling
+
+Read the supplied candidate schema and extract useful interview signals including:
+
+candidate/member ID;
+name;
+job role;
+years of experience;
+education if useful;
+cohort completion status;
+completed/passed missions;
+failed missions;
+skipped missions;
+attempts per mission;
+first-try performance;
+total completed missions;
+commit/activity signals.
+
+Important:
+
+status: COMPLETED does not mean every mission passed.
+
+Treat mission states separately:
+
+passed
+failed
+skipped
+
+
+
+Do not count failed/skipped topics as demonstrated completion.
+
+Curriculum grounding
+
+Use curriculum.json as the source of truth.
+
+For each curriculum day, preserve useful information such as:
+
+day number;
+module;
+title;
+learning objectives;
+tools;
+activity/type if relevant.
+
+Do not invent curriculum concepts that are not present in the supplied file.
+
+Interview planner
+
+Generate a structured personalized interview plan.
+
+The plan must guarantee that BuzzPrep can satisfy the hackathon requirement:
+
+minimum 8 questions
+across minimum 4 curriculum days
+
+
+
+The planner should select at least 4 candidate-appropriate curriculum days.
+
+It should not simply select the first four passed missions.
+
+Use candidate signals to create a balanced plan.
+
+Consider:
+
+breadth across modules;
+strong areas;
+weaker areas;
+missions requiring multiple attempts;
+role/seniority;
+progression through the cohort;
+avoiding excessive concentration on one module.
+Sparse candidates
+
+The supplied candidates include profiles with very few passed days.
+
+The implementation must handle these correctly.
+
+For example, some candidates may have exactly four passed curriculum days.
+
+The planner must still be able to create a valid 4-day interview plan.
+
+Do not assume every candidate has completed advanced RAG/agent/MCP topics.
+
+Failed/skipped topics
+
+Failed or skipped topics may influence the plan, but distinguish them from completed material.
+
+Recommended behavior:
+
+passed → normal assessment candidate;
+multiple attempts → possible deeper diagnostic/probe;
+failed → optional diagnostic area if appropriate;
+skipped → do not pretend the candidate completed it.
+
+If skipped/failed material is included, explicitly mark its intent as something like:
+
+diagnostic
+exploratory
+gap_check
+
+
+
+rather than normal completed-topic assessment.
+
+Difficulty
+
+Generate a deterministic difficulty estimate for each planned curriculum area.
+
+A simple scale is sufficient:
+
+introductory
+standard
+advanced
+
+
+
+or an equivalent structured enum.
+
+Difficulty may consider:
+
+candidate experience;
+attempts;
+first-try success;
+mission completion;
+role;
+overall cohort performance.
+
+Keep the rules understandable and testable.
+
+Avoid opaque scoring formulas unless they add real value.
+
+Interaction types
+
+Use our curriculum-wide interactive BuzzPrep model.
+
+Each planned area should include suitable interaction type(s), for example:
+
+system_canvas
+configuration_lab
+data_workbench
+prompt_schema_editor
+code_config_repair
+logs_metrics_explorer
+test_evaluation_runner
+incident_simulator
+architecture_critique
+
+
+
+Use docs/curriculum-interactions.md as guidance.
+
+Do not hard-code BuzzPrep as a RAG/node-canvas product.
+
+Suggested structured output
+
+You may improve this schema if needed, but aim for something conceptually similar:
+
+{
+  "candidateId": "CAND-001",
+  "profile": {
+    "experienceLevel": "standard",
+    "strongDays": [7, 8],
+    "weakerDays": [10],
+    "skippedDays": []
+  },
+  "plan": [
+    {
+      "day": 7,
+      "module": "Embeddings & Vector Search",
+      "topic": "Embeddings",
+      "intent": "assessment",
+      "difficulty": "standard",
+      "objectives": [],
+      "interactionTypes": ["test_evaluation_runner"],
+      "evidenceToLookFor": [],
+      "reasonSelected": "..."
+    }
+  ],
+  "minimumQuestions": 8,
+  "minimumDays": 4
+}
+
+
+
+Prefer Pydantic models/enums over arbitrary dictionaries where practical.
+
+Separation of responsibilities
+
+Keep layers separate.
+
+Suggested structure:
+
+backend/app/
+├── curriculum/
+│   ├── loader.py
+│   └── models.py
+├── profiling/
+│   └── candidate.py
+├── planning/
+│   └── interview.py
+└── ...
+
+
+
+Exact naming may differ if a better architecture fits the existing code.
+
+Important:
+
+loaders load/validate data;
+profiler interprets candidate signals;
+planner selects curriculum areas;
+Issue #5 will later generate conversational questions/challenges.
+
+Do not put all logic into one large file.
+
+Resource loading
+
+Do not rely on the current working directory being the repository root.
+
+Resolve the provided JSON resources robustly using application/package-relative paths or explicit configuration.
+
+Tests should be able to supply fixtures/custom paths where useful.
+
+Integration with Issue #1
+
+Do not redesign the session database.
+
+Expose clean planner APIs that the future interviewer can call, for example conceptually:
+
+profile_candidate(...)
+build_interview_plan(...)
+
+
+
+If session integration is useful, keep it lightweight and compatible with the existing InterviewSession model.
+
+Do not yet generate actual interview questions.
+
+Tests
+
+Add strong automated tests.
+
+At minimum test:
+
+curriculum loader loads all 31 days;
+candidate loader/profile handling works for all supplied candidates;
+passed/failed/skipped missions remain distinct;
+every supplied candidate can receive a plan with at least 4 curriculum days;
+plan can support at least 8 questions;
+sparse candidate profile works;
+strong candidate works;
+weak/multiple-attempt candidate works;
+skipped topics are not treated as completed;
+failed topics are not treated as passed;
+selected curriculum days actually exist in curriculum.json;
+interaction types are valid;
+difficulty values are valid;
+output is deterministic for identical input.
+
+Also run the existing Issue #1 tests to ensure nothing regresses.
+
+Quality
+
+Run:
+
+python -m pytest
+python -m ruff check .
+
+
+
+Both must pass.
+
+Do not silence Ruff rules merely to make checks green unless there is a strong reason.
+
+Git workflow
+
+Work only on:
+
+issue/3-candidate-profiler-planner
+
+
+
+Before opening the PR:
+
+fetch the latest main;
+update/rebase/merge the branch as appropriate;
+check for conflicts;
+rerun tests and Ruff;
+ensure no unrelated files or generated artifacts are committed.
+
+Preserve changes from other contributors.
+
+If a conflict requires a product/architecture decision rather than a mechanical resolution, stop and report it instead of guessing.
+
+Pull request
+
+When Issue #3 is complete:
+
+Push the branch.
+Open a PR targeting main.
+Include Closes #3.
+Include:
+profiling design;
+planner rules;
+curriculum loading approach;
+difficulty-selection logic;
+handling of failed/skipped/sparse candidates;
+tests added;
+exact commands/results;
+intentional follow-up work for Issue #5.
+
+Do not merge the PR.
+
+Stop after the PR is opened.
+
+This main BuzzPrep chat will review the PR and handle merge/conflict resolution.
+
+Final response
+
+Report:
+
+branch name;
+final commit SHA;
+PR number/link;
+files/modules added;
+candidate profiling rules;
+curriculum-day selection rules;
+difficulty rules;
+test results;
+Ruff result;
+any design decisions Issue #5 must respect;
+unresolved concerns.
+Worked for 25m 49s
+
+Implemented Issue #3 and opened the PR.
+
+Branch: issue/3-candidate-profiler-planner
+Final commit: c0a4013be48a99124f49dd9192c1a4538ed755e4
+PR: #13 — Backend: build candidate profiler and curriculum interview planner — currently Draft, not merged.
+Added modules: curriculum/{models,loader}.py, profiling/{candidate,loader}.py, planning/{models,rules,interactions,interview}.py, plus tests/test_planning.py. Final diff is 9 files; no frontend, DB redesign, Issue #5/#7/#9 work, or temporary CI files.
+Profiling: passed/failed/skipped remain separate; COMPLETED never implies mission success. Captures role, experience, education, attempts, first-try performance, commit/activity signals, strong days, weaker multi-attempt days, failures and skips.
+Day selection: minimum 4 days, prioritizes passed material, balances module breadth, strengths, weaker areas and role relevance. Exactly-four-pass candidates use those four passed days. Failed/skipped areas are only fallback diagnostic/gap_check, never normal assessment.
+Difficulty: introductory / standard / advanced; deterministic from mission state, attempts, experience/seniority, technical role and first-try performance. Strong juniors are not automatically promoted to advanced.
+Question guarantee: 2-question default budget per area, guaranteeing at least 8 questions across 4 days.
+Interactions: curriculum-wide mapping across all nine documented BuzzPrep interaction primitives, rather than assuming a RAG/node-canvas interface.
+Tests: combined Issue #1 regression + Issue #3 local run: 25 passed in 0.33s. Compilation also passed.
+Ruff: python -m ruff check . was attempted, but this execution runtime has no Ruff installation: No module named ruff. Package installation/download was unavailable, so I did not claim Ruff passed. The PR is intentionally Draft because this is the one unresolved validation gate.
+Issue #5 contract: consume profile_candidate() + build_interview_plan() from the existing InterviewSession.candidate_data; use the plan for what to assess, generate conversational questions separately, preserve diagnostic/gap/exploratory semantics, and update Issue #1 state through InterviewStatePatch.
+Unresolved concern: only the executable Ruff gate. Branch is otherwise 0 commits behind main and conflict-free at PR creation.

@@ -93,7 +93,10 @@ export const useWorkspaceStore = create<WorkspaceStoreState>((set, get) => ({
       const newNode: WorkspaceNode = {
         id: nodeId,
         data: nodeData,
-        position: { x: Math.random() * 200, y: Math.random() * 200 },
+        position: {
+          x: 80 + ((state.nodes.length - 3) % 3) * 220,
+          y: 275 + Math.floor(Math.max(0, state.nodes.length - 3) / 3) * 110,
+        },
       };
       const event: WorkspaceEventAdd = {
         id: generateEventId(),
