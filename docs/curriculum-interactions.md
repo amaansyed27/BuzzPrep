@@ -1,121 +1,275 @@
 # Curriculum-Wide Interactive Interview Map
 
-BuzzPrep should be capable of generating an interactive technical interview from any part of the supplied 31-day AI Cohort.
+BuzzPrep can ground interview challenges in any part of the supplied **31-day AI Cohort** without building 31 unrelated interfaces.
 
-The examples below are not fixed questions or a single scripted interview. They show how each curriculum day can become an **action-based interview challenge** rather than only a verbal Q&A.
+This document is a curriculum-to-interaction reference. The examples are **not fixed questions** and are not a required sequence for every candidate. The deterministic planner selects a subset of curriculum days from the candidate profile, and the adaptive interviewer decides how deeply to probe each selected area.
+
+## Current implementation model
+
+The backend planner exposes nine logical interaction types:
+
+```text
+system_canvas
+configuration_lab
+data_workbench
+prompt_schema_editor
+code_config_repair
+logs_metrics_explorer
+test_evaluation_runner
+incident_simulator
+architecture_critique
+```
+
+The frontend maps them into four reusable renderer families:
+
+| Logical interaction type | Current renderer family |
+|---|---|
+| `system_canvas` | System canvas |
+| `configuration_lab` | Configuration lab |
+| `prompt_schema_editor` | Editor challenge |
+| `code_config_repair` | Editor challenge |
+| `data_workbench` | Inspection challenge |
+| `logs_metrics_explorer` | Inspection challenge |
+| `test_evaluation_runner` | Inspection challenge |
+| `incident_simulator` | Inspection challenge |
+| `architecture_critique` | Inspection challenge |
+
+The editor family supports code, prompt, JSON/schema, SQL, and configuration modes. The inspection family is reused for data, logs, metrics, tests, incidents, and architecture critique.
+
+Candidate mutations are serialized through the common workspace event model. Visual selection alone is UI state and is not treated as evidence.
 
 ## Module 1 — Environment & Tooling
 
-| Day | Curriculum topic | Example interactive interview task |
-|---|---|---|
-| 1 | VS Code & Python Environment Setup | Present a broken Python project setup. The candidate chooses the correct interpreter, creates/activates a `.venv`, fixes an environment mismatch, and demonstrates how they would verify/debug the program. |
-| 2 | Local LLM & AI Coding Assistant Setup | Give the candidate Ollama, Qwen2.5-Coder, GitHub Copilot/Cline, and several connection/configuration choices. Ask them to assemble a working local coding workflow and diagnose a failed local-model connection. |
-| 3 | First AI Project, React Frontend & GitHub | Give partially connected React, Vite, FastAPI, Ollama, Git, and GitHub components. The candidate wires the frontend to the backend, connects the model, identifies the health/API flow, and orders the Git publishing steps. |
+| Day | Curriculum topic | Suitable interaction | Example interview challenge |
+|---|---|---|---|
+| 1 | VS Code & Python Environment Setup | `code_config_repair`, `incident_simulator` | Diagnose a broken Python environment, interpreter mismatch, or `.venv` setup and explain how to verify the fix. |
+| 2 | Local LLM & AI Coding Assistant Setup | `configuration_lab`, `incident_simulator` | Configure a local model/coding workflow and recover from a failed local-model connection. |
+| 3 | First AI Project, React Frontend & GitHub | `system_canvas`, `code_config_repair` | Connect React/Vite, FastAPI, a model service, and the Git workflow; repair a broken frontend/backend path. |
 
 ## Module 2 — Data Foundations
 
-| Day | Curriculum topic | Example interactive interview task |
-|---|---|---|
-| 4 | Reading & Processing Structured Data | Present messy CSV healthcare data and a target question. The candidate chooses Pandas cleaning operations, decides what belongs in SQLite, constructs/selects a SQL query, and explains where SQLAlchemy fits. |
-| 5 | Reading & Processing Unstructured Data | Present PDF, Word, scanned-form, and web inputs. The candidate routes each source through tools such as pdfplumber/PyPDF, python-docx, Tesseract OCR, or BeautifulSoup/Requests, then chooses normalization steps. |
-| 6 | Building the Knowledge Base | Give a set of processed documents. The candidate chooses chunk boundaries, attaches source/plan/section metadata, rejects poor chunks, and assembles the records that should be exported to `knowledge_base.jsonl`. |
+| Day | Curriculum topic | Suitable interaction | Example interview challenge |
+|---|---|---|---|
+| 4 | Reading & Processing Structured Data | `data_workbench`, `code_config_repair` | Clean messy tabular data, decide what belongs in SQLite, and repair or choose a query/transformation path. |
+| 5 | Reading & Processing Unstructured Data | `system_canvas`, `data_workbench` | Route PDF, DOCX, scanned, and web sources through appropriate extraction and normalization steps. |
+| 6 | Building the Knowledge Base | `data_workbench`, `configuration_lab` | Choose chunk boundaries and metadata, reject poor records, and construct retrieval-ready knowledge-base entries. |
 
 ## Module 3 — Embeddings & Vector Search
 
-| Day | Curriculum topic | Example interactive interview task |
-|---|---|---|
-| 7 | Embeddings Explained | Show candidate text samples, embedding/model choices, and a similarity visualization. Ask the candidate to choose an embedding approach, predict which concepts should cluster, interpret a PCA plot, and diagnose clearly poor semantic grouping. |
-| 8 | Vector Databases Overview | Present requirements such as local development, cloud scale, filtering, and operational overhead. The candidate compares ChromaDB and Pinecone, chooses one for the scenario, configures the basic store, and defends the trade-off. |
-| 9 | Building & Populating the Vector Database | Give chunks, embeddings, IDs, and metadata with several mistakes. The candidate constructs the vector records, detects missing/unindexed chunks, configures metadata filtering, and tests semantic search results. |
-| 10 | The Retrieval & Matching Engine | Present structured and semantic user queries. The candidate builds a router between SQLite, ChromaDB, and hybrid retrieval, then decides how to merge/deduplicate results and repairs poor routing decisions. |
+| Day | Curriculum topic | Suitable interaction | Example interview challenge |
+|---|---|---|---|
+| 7 | Embeddings Explained | `data_workbench`, `test_evaluation_runner` | Compare semantic relationships, inspect similarity behavior, and diagnose poor grouping or embedding choices. |
+| 8 | Vector Databases Overview | `configuration_lab`, `architecture_critique` | Choose between local/managed vector-store options for a scenario and defend scale, filtering, and operational trade-offs. |
+| 9 | Building & Populating the Vector Database | `data_workbench`, `code_config_repair` | Detect missing IDs/metadata/indexing mistakes, configure filtering, and validate search results. |
+| 10 | The Retrieval & Matching Engine | `system_canvas`, `test_evaluation_runner` | Build structured/vector/hybrid routing, merge results, and repair poor retrieval decisions. |
 
 ## Module 4 — LLM Core, Prompting & Fine-Tuning
 
-| Day | Curriculum topic | Example interactive interview task |
-|---|---|---|
-| 11 | RAG End-to-End & LLM API Basics | Assemble retrieval, context, a grounded prompt, and a local/hosted LLM provider into an end-to-end RAG flow. Then show an unsupported answer and ask the candidate to diagnose whether retrieval, context, or prompting caused it. |
-| 12 | Prompt Engineering Fundamentals | Give a task, several system instructions, examples, constraints, and test questions. The candidate constructs zero/few-shot prompt variants, tests them against fixed cases, compares accuracy/compliance/tone, and chooses the production prompt. |
-| 13 | Advanced Prompting: Function Calling & Structured Outputs | Present chatbot functions and user queries. The candidate defines/selects function schemas, maps queries to tools, constructs a Pydantic-style output shape, detects invalid structured output, and inspects tool-call logs. |
-| 14 | Fine-Tuning: Concepts & When to Use It | Present several chatbot failures and candidate solutions: prompting, RAG, or fine-tuning. The candidate chooses the appropriate approach, identifies which examples belong in a fine-tuning dataset, and separates valid training/test data. |
-| 15 | Fine-Tuning: Hands-On with LoRA & QLoRA | Give base/fine-tuned model outputs and configuration choices. The candidate configures a plausible LoRA/QLoRA-style run, compares unseen-test behavior, interprets quality changes, and decides whether fine-tuning produced measurable benefit. |
+| Day | Curriculum topic | Suitable interaction | Example interview challenge |
+|---|---|---|---|
+| 11 | RAG End-to-End & LLM API Basics | `system_canvas`, `incident_simulator` | Assemble retrieval, context, prompt, and LLM components, then diagnose an unsupported or ungrounded answer. |
+| 12 | Prompt Engineering Fundamentals | `prompt_schema_editor`, `test_evaluation_runner` | Build and compare prompt variants against fixed cases and justify the production choice. |
+| 13 | Advanced Prompting: Function Calling & Structured Outputs | `prompt_schema_editor`, `logs_metrics_explorer` | Define tool/output schemas, inspect invalid structured output, and repair tool-call behavior. |
+| 14 | Fine-Tuning: Concepts & When to Use It | `configuration_lab`, `architecture_critique` | Decide whether a failure needs prompting, RAG, or fine-tuning and separate valid training/test data. |
+| 15 | Fine-Tuning: Hands-On with LoRA & QLoRA | `configuration_lab`, `test_evaluation_runner` | Configure a plausible LoRA/QLoRA run, compare unseen-test behavior, and decide whether the result is meaningful. |
 
 ## Module 5 — Chatbot Application Build
 
-| Day | Curriculum topic | Example interactive interview task |
-|---|---|---|
-| 16 | Chatbot Backend & API Integration | Present a FastAPI chatbot backend with missing or incorrectly connected retrieval, function-calling, session, and history pieces. The candidate repairs the request flow and tests example requests/responses. |
-| 17 | Chatbot Frontend Development | Give a Streamlit-style chat UI and backend endpoints. The candidate connects the frontend request flow, keeps conversation history, adds the plan selector/new-conversation behavior, and diagnoses an end-to-end state bug. |
-| 18 | Full-Stack Integration & Streaming Responses | Show a token-streaming pipeline using FastAPI/StreamingResponse/SSE. The candidate places the streaming pieces correctly, fixes an interrupted stream, and chooses how the frontend should represent loading and failure states. |
-| 19 | Response Formatting & Rich Outputs | Give raw model responses, retrieved sources, claims, and structured data. The candidate builds a trustworthy final response using citations, Markdown, cards/tables, and validated structured output while catching malformed data. |
-| 20 | Conversation Memory & Context Management | Present a long conversation that exceeds a token budget. The candidate decides what history to keep, what to summarize, how to preserve user preferences, and repairs a case where important context is lost. |
+| Day | Curriculum topic | Suitable interaction | Example interview challenge |
+|---|---|---|---|
+| 16 | Chatbot Backend & API Integration | `code_config_repair`, `system_canvas` | Repair a FastAPI request flow containing retrieval, tool-calling, session, or history mistakes and verify example requests. |
+| 17 | Chatbot Frontend Development | `code_config_repair`, `incident_simulator` | Fix frontend/backend state flow and diagnose conversation-history or new-session bugs. |
+| 18 | Full-Stack Integration & Streaming Responses | `system_canvas`, `logs_metrics_explorer` | Place streaming components correctly, inspect an interrupted stream, and choose loading/failure handling. |
+| 19 | Response Formatting & Rich Outputs | `prompt_schema_editor`, `test_evaluation_runner` | Turn raw model/retrieval output into validated rich output with citations/structure while catching malformed data. |
+| 20 | Conversation Memory & Context Management | `configuration_lab`, `architecture_critique` | Manage a conversation that exceeds its token budget and defend what to retain, summarize, or externalize. |
 
 ## Module 6 — Agentic AI & MCP
 
-| Day | Curriculum topic | Example interactive interview task |
-|---|---|---|
-| 21 | Agentic Frameworks: LangChain Agents & Tool Use | Give an agent a set of reusable tools and several queries. The candidate decides which tools the agent should expose, inspects a ReAct/tool-selection trace, identifies an incorrect decision, and modifies the tool setup or instructions. |
-| 22 | Multi-Agent Orchestration | Give specialist agents and a router. The candidate constructs the delegation flow, routes sample healthcare requests, repairs an incorrect hand-off, and decides whether a single-agent or multi-agent design is justified for the scenario. |
-| 23 | Model Context Protocol (MCP) | Present an MCP server, candidate tools, and compatible clients. The candidate decides what should be exposed as tools, connects the client/server flow, executes a sample interaction, and identifies a broken MCP tool contract. |
-| 24 | Agentic Chatbot Integration | Give retrieval, memory, agents, MCP tools, retries, and timeouts as system components. The candidate assembles the production-style flow and then handles injected failures such as an unavailable MCP tool or timed-out agent action. |
+| Day | Curriculum topic | Suitable interaction | Example interview challenge |
+|---|---|---|---|
+| 21 | Agentic Frameworks: LangChain Agents & Tool Use | `system_canvas`, `logs_metrics_explorer` | Choose agent tools, inspect a tool-selection trace, and correct a bad decision or overlapping tool set. |
+| 22 | Multi-Agent Orchestration | `system_canvas`, `architecture_critique` | Construct a router/delegation flow, repair a bad hand-off, and justify single-agent vs multi-agent architecture. |
+| 23 | Model Context Protocol (MCP) | `system_canvas`, `code_config_repair` | Connect MCP client/server/tools and diagnose a broken tool contract. |
+| 24 | Agentic Chatbot Integration | `system_canvas`, `incident_simulator` | Assemble retrieval, memory, agents, MCP, retries, and timeouts, then react to tool or orchestration failures. |
 
 ## Module 7 — Evaluation, Security & Deployment
 
-| Day | Curriculum topic | Example interactive interview task |
-|---|---|---|
-| 25 | Chatbot Evaluation & Testing | Present chatbot outputs and a candidate benchmark set. The candidate classifies test cases, chooses measures for accuracy/grounding/retrieval/consistency, identifies failure clusters, and decides what should be fixed first. |
-| 26 | Performance Optimization & Cost Management | Show baseline latency, token usage, prompt size, retrieval count, and repeated-query behavior. The candidate changes retrieval/prompt/cache choices, runs a simulated benchmark, and balances cost against response quality. |
-| 27 | Security, Privacy & Guardrails | Present an API and agent pipeline containing unsafe inputs, sensitive information, prompt injection, and missing protections. The candidate identifies vulnerable points and adds authentication/input validation/privacy/guardrail controls where appropriate. |
-| 28 | Docker & Kubernetes Deployment | Give backend/frontend services and deployment components. The candidate creates the correct container/service relationships, configures environment variables and health checks, and diagnoses an unhealthy or incorrectly exposed deployment. |
+| Day | Curriculum topic | Suitable interaction | Example interview challenge |
+|---|---|---|---|
+| 25 | Chatbot Evaluation & Testing | `test_evaluation_runner`, `data_workbench` | Classify evaluation cases, inspect grounding/retrieval/consistency failures, and prioritize fixes. |
+| 26 | Performance Optimization & Cost Management | `logs_metrics_explorer`, `configuration_lab` | Change prompt/retrieval/cache choices against latency/token/cost signals and explain the quality trade-off. |
+| 27 | Security, Privacy & Guardrails | `architecture_critique`, `incident_simulator` | Find unsafe inputs, data exposure, prompt injection, or missing controls and make the smallest justified correction. |
+| 28 | Docker & Kubernetes Deployment | `system_canvas`, `code_config_repair` | Configure service/container relationships, environment, exposure, and health checks; diagnose an unhealthy deployment. |
 
 ## Module 8 — Production & Capstone
 
-| Day | Curriculum topic | Example interactive interview task |
-|---|---|---|
-| 29 | Monitoring, Logging & Observability | Present logs, latency/error metrics, tool-execution data, and a dashboard. The candidate decides what should be logged/monitored, links Prometheus/Grafana-style signals to the application, and diagnoses a production regression from the evidence. |
-| 30 | Production Readiness & Final Testing | Give a nearly finished application with several hidden integration failures. The candidate runs through an end-to-end readiness board, selects tests for retrieval/agents/frontend/deployment, finds failures, and prioritizes fixes/documentation. |
-| 31 | Capstone Project & Final Demo | Give a complete enterprise-chatbot requirement. The candidate constructs or critiques the end-to-end architecture across retrieval, RAG, agents, MCP, memory, API/frontend, deployment, evaluation, and observability, then defends the key trade-offs as a final system-design interview. |
+| Day | Curriculum topic | Suitable interaction | Example interview challenge |
+|---|---|---|---|
+| 29 | Monitoring, Logging & Observability | `logs_metrics_explorer`, `incident_simulator` | Correlate logs, latency/error metrics, and traces to diagnose a production regression. |
+| 30 | Production Readiness & Final Testing | `test_evaluation_runner`, `architecture_critique` | Use an end-to-end readiness board to find integration failures and prioritize fixes/documentation. |
+| 31 | Capstone Project & Final Demo | `system_canvas`, `architecture_critique` | Build or critique an end-to-end production AI architecture and defend retrieval, agent, memory, API, deployment, evaluation, and observability trade-offs. |
 
-## How These Become Interviews
+## How the map becomes an interview
 
-These tasks should not be presented as 31 fixed levels that every candidate must complete.
+The candidate does **not** progress through the 31 rows in order.
 
-The interview agent should use the candidate profile and curriculum history to select a subset of relevant days, then combine interaction and conversation.
-
-For example:
+The runtime pattern is closer to:
 
 ```text
-Interviewer gives scenario
-        ↓
-Candidate performs an action
-        ↓
-Interviewer asks why
-        ↓
-Candidate explains
-        ↓
-System evaluates action + answer
-        ↓
-Interviewer introduces failure/constraint
-        ↓
-Candidate modifies solution
-        ↓
-Evidence recorded for feedback
+Candidate profile
+      ↓
+Deterministic curriculum plan
+      ↓
+Interviewer presents selected day/scenario
+      ↓
+Frontend renders suitable interaction mode(s)
+      ↓
+Candidate performs action(s) + explains decision
+      ↓
+Backend evaluates answer + supplied workspace evidence
+      ↓
+Adaptive decision: follow up / deepen / transition
+      ↓
+Python checks 8-question / 4-day completion invariant
+      ↓
+Continue or finish with structured feedback
 ```
 
-The required interview still needs at least 8 questions spanning at least 4 curriculum days. Interactive challenges provide the practical context in which those questions and follow-ups happen.
+The deterministic planner decides **what is reasonable to assess**. The LLM decides **how to phrase and adapt the conversation** within validated structured outputs. The frontend decides **how to render the practical interaction**. These responsibilities remain separate.
 
-## Reusable Interaction Primitives
+## Personalization examples
 
-The 31 curriculum examples can be covered by a relatively small frontend toolkit rather than 31 completely separate interfaces:
+The same curriculum day can be presented differently depending on the candidate.
 
-- **node/system canvas** — build pipelines and architectures;
-- **drag/drop ordering** — arrange processing or deployment steps;
-- **choice/config panels** — select tools, models, parameters, metadata, or policies;
-- **data/table workbench** — inspect and manipulate records or retrieval results;
-- **prompt/schema editor** — construct prompts, schemas, or structured responses;
-- **code/config editor** — repair small snippets or configuration without requiring a full IDE;
-- **log/trace/metric viewer** — diagnose agent and production behavior;
-- **test runner/output panel** — compare expected and actual behavior;
-- **incident cards** — introduce changing requirements and failures;
-- **architecture critique mode** — identify, explain, and repair problems in an existing system.
+### Strong first-try signal
 
-The challenge definition should choose and combine these primitives based on the curriculum objective being assessed.
+A candidate with strong demonstrated progress may receive:
+
+- a harder constraint;
+- an architecture trade-off;
+- a failure case;
+- a comparison between plausible solutions.
+
+### Repeated-attempt/weaker signal
+
+A candidate who needed several attempts may receive:
+
+- a more foundational configuration or diagnosis;
+- a smaller repair task;
+- a prerequisite probe before moving deeper.
+
+### Failed or skipped material
+
+Failed/skipped topics are not represented as completed learning. If selected, they are intentionally framed as diagnostic, gap-check, or exploratory areas according to the planner.
+
+## Evidence examples
+
+### System canvas
+
+Useful evidence:
+
+```text
+add node
+remove node
+connect nodes
+disconnect edge
+reset / undo
+```
+
+Possible follow-up:
+
+> You inserted a validation gate before the model call. What failure are you containing there, and what would change under higher throughput?
+
+### Configuration lab
+
+Useful evidence:
+
+```text
+change provider/mode
+change timeout
+change retry behavior
+change top-k or policy
+submit configuration decision
+```
+
+Possible follow-up:
+
+> You enabled retries and reduced the timeout. Which failures are safe to retry, and how do you prevent duplicate side effects?
+
+### Editor challenge
+
+Useful evidence:
+
+```text
+edit code
+edit prompt
+edit JSON/schema
+edit SQL
+edit config
+run / submit
+```
+
+Possible follow-up:
+
+> Your schema now makes `evidence` required. What happens when the upstream model cannot produce valid evidence, and where should that failure be handled?
+
+### Inspection challenge
+
+Useful evidence:
+
+```text
+inspect/choose evidence
+run evaluation
+submit diagnosis
+react to incident constraint
+```
+
+Possible follow-up:
+
+> You prioritized the latency spike over the small quality regression. Which metric or trace would you inspect next to confirm that decision?
+
+## Constraint injection
+
+The current challenge registry can attach reusable scenario constraints such as:
+
+- tighter latency budget;
+- stale dependency results;
+- 10× traffic increase;
+- intermittent downstream timeout;
+- sensitive data appearing in a request.
+
+A constraint is useful only when it changes the reasoning expected from the candidate. It should not be added merely as visual decoration.
+
+## Relationship to final feedback
+
+Workspace actions do not automatically become strengths or gaps. They are evidence supplied to structured per-turn evaluation.
+
+Final feedback should reflect patterns across the interview, for example:
+
+- repeated sound trade-off reasoning;
+- consistent grounding in observable evidence;
+- a recurring misconception;
+- weak failure handling;
+- improved reasoning after targeted follow-up.
+
+The required final schema remains:
+
+```text
+summary
+strengths[]
+gaps[]
+next[]
+```
+
+## Important product boundary
+
+The interactive map extends the conversational interview; it does not replace it.
+
+The organizer can use BuzzPrep with only:
+
+```text
+POST /api/interview
+sessionId + candidate/message
+```
+
+Workspace state is optional additive context. This keeps the external contract simple while allowing the browser product to demonstrate technical reasoning through actions.
