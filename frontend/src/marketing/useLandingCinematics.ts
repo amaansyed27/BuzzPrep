@@ -23,6 +23,7 @@ export function useLandingCinematics(
     if (!root) return;
 
     const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)");
+    const compactLayout = window.matchMedia("(max-width: 900px)");
     const revealNodes = Array.from(root.querySelectorAll<HTMLElement>("[data-reveal]"));
     const heroLines = Array.from(root.querySelectorAll<HTMLElement>("[data-hero-line]"));
     const heroProduct = root.querySelector<HTMLElement>("[data-hero-product]");
@@ -30,7 +31,7 @@ export function useLandingCinematics(
     const heroCue = root.querySelector<HTMLElement>("[data-hero-cue]");
     const parallaxNodes = Array.from(root.querySelectorAll<HTMLElement>("[data-parallax]"));
 
-    if (reducedMotion.matches) {
+    const revealEverything = () => {
       revealNodes.forEach((node) => node.classList.add("is-visible"));
       heroLines.forEach((line) => {
         line.style.opacity = "1";
@@ -44,6 +45,10 @@ export function useLandingCinematics(
       }
       heroMeta.forEach((node) => { node.style.opacity = "1"; });
       if (heroCue) heroCue.style.opacity = "1";
+    };
+
+    if (reducedMotion.matches || compactLayout.matches) {
+      revealEverything();
       return;
     }
 
