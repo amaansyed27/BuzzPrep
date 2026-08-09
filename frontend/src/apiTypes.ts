@@ -63,6 +63,51 @@ export type ContinueInterviewRequest = {
   sessionId: string;
   message: string;
   workspace?: SerializedWorkspace;
+  integrityEvents?: IntegrityTelemetryEvent[];
+};
+
+export type IntegrityTelemetryEvent = {
+  type:
+    | "tab_hidden"
+    | "tab_visible"
+    | "window_blur"
+    | "window_focus"
+    | "fullscreen_enter"
+    | "fullscreen_exit"
+    | "reconnect";
+  timestamp: string;
+};
+
+export type InterviewHistoryItem = {
+  sessionId: string;
+  status: "active" | "completed";
+  candidateName: string;
+  candidateRole: string;
+  createdAt: string;
+  lastActivity: string;
+  completedAt?: string | null;
+  questionsAsked: number;
+  daysCovered: number;
+  currentTopic?: string | null;
+  resultAvailable: boolean;
+};
+
+export type InterviewHistoryList = {
+  interviews: InterviewHistoryItem[];
+};
+
+export type InterviewTranscriptMessage = {
+  sequence: number;
+  role: "interviewer" | "candidate";
+  text: string;
+};
+
+export type InterviewHistoryDetail = InterviewHistoryItem & {
+  candidate: CandidateRecord;
+  challenge?: ChallengeMetadata | null;
+  progress: InterviewProgress;
+  feedback?: Feedback | null;
+  messages: InterviewTranscriptMessage[];
 };
 
 export type ErrorDetail = {

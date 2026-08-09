@@ -1,8 +1,8 @@
 import { ArrowRight, Search, ShieldCheck, Sparkles } from "lucide-react";
 import { useMemo, useState } from "react";
-import type { CandidateRecord, ErrorResponse } from "./apiTypes";
+import { Link, useLocation, useNavigate } from "react-router-dom";
+import type { CandidateRecord } from "./apiTypes";
 import { candidates } from "./data/candidates";
-import { startSession } from "./interviewApi";
 import { useInterviewStore } from "./useInterviewStore";
 
 const initials = (name: string) =>
@@ -23,11 +23,10 @@ function signalSummary(candidate: CandidateRecord) {
 export default function SetupScreen() {
   const [selectedId, setSelectedId] = useState(candidates[0]?.member.id ?? "");
   const [query, setQuery] = useState("");
-  const busy = useInterviewStore((state) => state.busy);
-  const error = useInterviewStore((state) => state.lastError);
-  const setBusy = useInterviewStore((state) => state.setBusy);
-  const setError = useInterviewStore((state) => state.setError);
-  const startInterview = useInterviewStore((state) => state.startInterview);
+  const prepareInterview = useInterviewStore((state) => state.prepareInterview);
+  const location = useLocation();
+  const navigate = useNavigate();
+  const demo = location.pathname.startsWith("/demo");
   const selected =
     candidates.find((candidate) => candidate.member.id === selectedId) ?? candidates[0];
   const filteredCandidates = useMemo(() => {
@@ -38,19 +37,11 @@ export default function SetupScreen() {
     );
   }, [query]);
 
-  async function beginInterview() {
-    if (!selected || busy) return;
+  function beginInterview() {
+    if (!selected) return;
     const sessionId = crypto.randomUUID();
-    setBusy(true);
-    setError(null);
-    try {
-      const response = await startSession(sessionId, selected);
-      startInterview(selected, sessionId, response);
-    } catch (requestError) {
-      setError(requestError as ErrorResponse);
-    } finally {
-      setBusy(false);
-    }
+    prepareInterview(selected, sessionId);
+    navigate(demo ? `/demo/${sessionId}/readiness` : `/prep/${sessionId}/readiness`);
   }
 
   if (!selected) return <main className="setup-screen">No supplied candidates were found.</main>;
@@ -58,11 +49,11 @@ export default function SetupScreen() {
   return (
     <main className="setup-screen">
       <header className="setup-topbar">
-        <a className="brand-lockup" href="#main-setup" aria-label="BuzzPrep home">
+        <Link className="brand-lockup" to="/" aria-label="BuzzPrep home">
           <span className="brand-mark">B</span>
           <span>BUZZPREP</span>
-        </a>
-        <span className="demo-badge"><ShieldCheck size={14} /> Hackathon demo</span>
+        </Link>
+        <span className="demo-badge"><ShieldCheck size={14} /> {demo ? "Public demo" : "New authenticated prep"}</span>
       </header>
 
       <section className="setup-layout" id="main-setup">
@@ -142,17 +133,11 @@ export default function SetupScreen() {
                   ))}
                 </div>
               </div>
-              {error && (
-                <div className="error-callout" role="alert">
-                  <strong>Couldn’t start the interview</strong>
-                  <span>{error.error.message}</span>
-                </div>
-              )}
-              <button className="start-button" onClick={beginInterview} disabled={busy}>
-                <span>{busy ? "Preparing personalized challenge…" : `Interview ${selected.member.name.split(" ")[0]}`}</span>
+              <button className="start-button" onClick={beginInterview}>
+                <span>Continue to readiness</span>
                 <ArrowRight size={19} aria-hidden="true" />
               </button>
-              <p className="privacy-note">Uses the exact supplied candidate record. No sign-in required.</p>
+              <p className="privacy-note">Uses the exact supplied candidate record. The challenge starts after a short readiness check.</p>
             </div>
           </div>
         </section>

@@ -1,4 +1,6 @@
 import { ArrowRight, CheckCircle2, Gauge, RefreshCw, Target, TriangleAlert } from "lucide-react";
+import { useLocation, useNavigate } from "react-router-dom";
+import { useAuth } from "./auth/AuthProvider";
 import { useInterviewStore } from "./useInterviewStore";
 import { useWorkspaceStore } from "./workspace/store";
 
@@ -20,6 +22,10 @@ function ResultList({
 }
 
 export default function ResultsScreen() {
+  const { user } = useAuth();
+  const navigate = useNavigate();
+  const location = useLocation();
+  const demo = location.pathname.startsWith("/demo/");
   const candidate = useInterviewStore((state) => state.candidate);
   const feedback = useInterviewStore((state) => state.feedback);
   const progress = useInterviewStore((state) => state.progress);
@@ -29,6 +35,7 @@ export default function ResultsScreen() {
   function startAnother() {
     useWorkspaceStore.getState().resetWorkspace();
     restart();
+    navigate(demo ? "/demo/setup" : "/prep/new");
   }
 
   return (
@@ -66,7 +73,10 @@ export default function ResultsScreen() {
 
       <footer className="results-footer">
         <div><strong>BuzzPrep watched the work, not just the words.</strong><span>Feedback combines answers with auditable workspace actions.</span></div>
-        <button onClick={startAnother}><RefreshCw size={15} /> Interview another candidate</button>
+        <div className="results-actions">
+          {user && !demo ? <button type="button" onClick={() => navigate("/dashboard")}>Back to dashboard</button> : null}
+          <button onClick={startAnother}><RefreshCw size={15} /> Start another prep</button>
+        </div>
       </footer>
     </main>
   );

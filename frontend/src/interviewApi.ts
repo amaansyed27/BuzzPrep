@@ -2,6 +2,8 @@ import type {
   CandidateRecord,
   ContinueInterviewRequest,
   ErrorResponse,
+  InterviewHistoryDetail,
+  InterviewHistoryList,
   InterviewResponse,
 } from "./apiTypes";
 
@@ -39,13 +41,23 @@ function normalizeRequestError(error: unknown): ErrorResponse {
   );
 }
 
-async function postInterview(payload: Record<string, unknown>): Promise<InterviewResponse> {
+function authHeaders(accessToken?: string | null): HeadersInit {
+  return {
+    "Content-Type": "application/json",
+    ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
+  };
+}
+
+async function postInterview(
+  payload: Record<string, unknown>,
+  accessToken?: string | null,
+): Promise<InterviewResponse> {
   const controller = new AbortController();
   const timeout = window.setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
   try {
     const response = await fetch(INTERVIEW_URL, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: authHeaders(accessToken),
       body: JSON.stringify(payload),
       signal: controller.signal,
     });
@@ -58,10 +70,36 @@ async function postInterview(payload: Record<string, unknown>): Promise<Intervie
   }
 }
 
-export function startSession(sessionId: string, candidate: CandidateRecord) {
-  return postInterview({ sessionId, candidate });
+export function startSession(
+  sessionId: string,
+  candidate: CandidateRecord,
+  accessToken?: string | null,
+) {
+  return postInterview({ sessionId, candidate }, accessToken);
 }
 
-export function continueSession(request: ContinueInterviewRequest) {
-  return postInterview(request);
+export function continueSession(
+  request: ContinueInterviewRequest,
+  accessToken?: string | null,
+) {
+  return postInterview(request, accessToken);
+}
+
+async function getAuthenticated<T>(path: string, accessToken: string): Promise<T> {
+  const response = await fetch(`${API_BASE_URL}${path}`, {
+    headers: { Authorization: `Bearer ${accessToken}` },
+  });
+  if (!response.ok) throw await parseError(response);
+  return (await response.json()) as T;
+}
+
+export function getInterviewHistory(accessToken: string) {
+  return getAuthenticated<InterviewHistoryList>("/api/me/interviews", accessToken);
+}
+
+export function getInterviewDetail(sessionId: string, accessToken: string) {
+  return getAuthenticated<InterviewHistoryDetail>(
+    `/api/me/interviews/${encodeURIComponent(sessionId)}`,
+    accessToken,
+  );
 }

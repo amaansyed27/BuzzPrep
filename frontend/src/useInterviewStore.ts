@@ -6,6 +6,7 @@ import type {
   Feedback,
   InterviewProgress,
   InterviewResponse,
+  InterviewHistoryDetail,
 } from "./apiTypes";
 
 export type InterviewMessage = {
@@ -32,6 +33,7 @@ type InterviewState = {
   progress: InterviewProgress | null;
   coveredAreas: CoveredArea[];
   feedback: Feedback | null;
+  prepareInterview: (candidate: CandidateRecord, sessionId: string) => void;
   startInterview: (
     candidate: CandidateRecord,
     sessionId: string,
@@ -42,6 +44,7 @@ type InterviewState = {
   setBusy: (busy: boolean) => void;
   setError: (error: ErrorResponse | null) => void;
   restart: () => void;
+  resumeInterview: (detail: InterviewHistoryDetail) => void;
 };
 
 const asMessage = (
@@ -74,6 +77,20 @@ export const useInterviewStore = create<InterviewState>((set) => ({
   coveredAreas: [],
   feedback: null,
 
+  prepareInterview: (candidate, sessionId) =>
+    set({
+      phase: "setup",
+      candidate,
+      sessionId,
+      busy: false,
+      lastError: null,
+      messages: [],
+      challenge: null,
+      progress: null,
+      coveredAreas: [],
+      feedback: null,
+    }),
+
   startInterview: (candidate, sessionId, response) =>
     set({
       phase: response.done ? "results" : "interview",
@@ -103,6 +120,21 @@ export const useInterviewStore = create<InterviewState>((set) => ({
 
   setBusy: (busy) => set({ busy }),
   setError: (lastError) => set({ lastError }),
+  resumeInterview: (detail) =>
+    set({
+      phase: detail.status === "completed" ? "results" : "interview",
+      sessionId: detail.sessionId,
+      candidate: detail.candidate,
+      busy: false,
+      lastError: null,
+      messages: detail.messages.map((message) => asMessage(message.role, message.text)),
+      challenge: detail.challenge ?? null,
+      progress: detail.progress,
+      coveredAreas: detail.challenge
+        ? [{ day: detail.challenge.curriculumDay, topic: detail.challenge.topic }]
+        : [],
+      feedback: detail.feedback ?? null,
+    }),
   restart: () =>
     set({
       phase: "setup",

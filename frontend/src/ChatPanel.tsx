@@ -1,12 +1,15 @@
 import { ArrowUp, Bot, CheckCircle2, X } from "lucide-react";
 import { type FormEvent, useEffect, useRef, useState } from "react";
 import type { ErrorResponse } from "./apiTypes";
+import { useAuth } from "./auth/AuthProvider";
 import { continueSession } from "./interviewApi";
 import MessageItem from "./MessageItem";
+import { drainIntegrityEvents, restoreIntegrityEvents } from "./prep/integrityTelemetry";
 import { useInterviewStore } from "./useInterviewStore";
 import { useWorkspaceStore } from "./workspace/store";
 
 export default function ChatPanel() {
+  const { session } = useAuth();
   const [draft, setDraft] = useState("");
   const messages = useInterviewStore((state) => state.messages);
   const sessionId = useInterviewStore((state) => state.sessionId);
@@ -30,15 +33,20 @@ export default function ChatPanel() {
     if (!answer || !sessionId || busy) return;
     setBusy(true);
     setError(null);
+    const integrityEvents = drainIntegrityEvents();
     try {
       const workspace = workspaceActive
         ? useWorkspaceStore.getState().serializeWorkspace()
         : undefined;
-      const response = await continueSession({ sessionId, message: answer, workspace });
+      const response = await continueSession(
+        { sessionId, message: answer, workspace, integrityEvents },
+        session?.access_token,
+      );
       pushCandidateMessage(answer);
       setDraft("");
       applyResponse(response);
     } catch (requestError) {
+      restoreIntegrityEvents(integrityEvents);
       setError(requestError as ErrorResponse);
     } finally {
       setBusy(false);
