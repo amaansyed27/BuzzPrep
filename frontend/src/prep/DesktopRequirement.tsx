@@ -13,7 +13,7 @@ export default function DesktopRequirement({ backTo = "/dashboard" }: { backTo?:
 
   return (
     <main className="desktop-gate">
-      <Link className="brand-lockup" to="/"><span className="brand-mark">B</span><span>BUZZPREP</span></Link>
+      <Link className="brand-lockup" to="/"><span>BuzzPrep</span></Link>
       <section>
         <span className="desktop-gate-icon"><MonitorUp size={34} /></span>
         <small>ACTIVE PREP REQUIREMENT</small>

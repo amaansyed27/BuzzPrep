@@ -28,7 +28,7 @@ export default function AuthCallbackPage() {
 
   return (
     <main className="callback-page">
-      <Link className="brand-lockup" to="/"><span className="brand-mark">B</span><span>BUZZPREP</span></Link>
+      <Link className="brand-lockup" to="/"><span>BuzzPrep</span></Link>
       {error ? (
         <section className="callback-status error" role="alert">
           <TriangleAlert size={30} />
