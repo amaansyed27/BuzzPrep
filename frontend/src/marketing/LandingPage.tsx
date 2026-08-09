@@ -1,6 +1,5 @@
 import {
   Activity,
-  ArrowDown,
   ArrowRight,
   Bot,
   Braces,
@@ -8,6 +7,7 @@ import {
   Check,
   CircleGauge,
   Code2,
+  DatabaseZap,
   Eye,
   Focus,
   GitBranch,
@@ -17,255 +17,114 @@ import {
   Network,
   ShieldCheck,
   SlidersHorizontal,
-  Sparkles,
   TerminalSquare,
-  Workflow,
 } from "lucide-react";
-import { type CSSProperties, useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import ProductNav from "../components/ProductNav";
 import ProductSequence from "./ProductSequence";
 import "./landing-cinematic.css";
-import { useLandingCinematics } from "./useLandingCinematics";
 
 const narrative = [
-  { number: "01", title: "Scenario", copy: "A real technical constraint sets the problem.", event: "challenge.open(day_08)" },
-  { number: "02", title: "Act", copy: "Build, connect, configure, inspect, or debug in the workspace.", event: "workspace.connect(retriever, ranker)" },
-  { number: "03", title: "Explain", copy: "Defend the decision and name the trade-off you accepted.", event: "answer.attach(workspace_evidence)" },
-  { number: "04", title: "Evaluate evidence", copy: "Your explanation and meaningful workspace actions are evaluated together.", event: "evaluate(answer + actions)" },
-  { number: "05", title: "Constraint", copy: "BuzzPrep changes one operating condition instead of moving on blindly.", event: "constraint.inject(p95_latency=150ms)" },
-  { number: "06", title: "Adapt", copy: "The next question responds to what you actually demonstrated.", event: "follow_up.generate(evidence)" },
+  ["01", "Scenario", "A real technical constraint sets the problem."],
+  ["02", "Act", "Build, connect, configure, inspect, or debug."],
+  ["03", "Explain", "Defend the choice and name the trade-off."],
+  ["04", "Evaluate evidence", "Your answer and workspace actions are evaluated together."],
+  ["05", "Constraint", "The system changes one operating condition."],
+  ["06", "Adapt", "The next question responds to what you demonstrated."],
 ];
 
 const rendererModes = [
-  { id: "canvas", label: "System Canvas", icon: Network, copy: "Connect services and make system boundaries visible.", event: "connect(node_a, node_b)" },
-  { id: "editor", label: "Editor", icon: Code2, copy: "Work in code, prompt, SQL, JSON, and config modes.", event: "edit(prompt.system)" },
-  { id: "config", label: "Config Lab", icon: SlidersHorizontal, copy: "Tune model, retrieval, retry, and runtime settings.", event: "configure(timeout_ms)" },
-  { id: "inspect", label: "Logs + Metrics", icon: Activity, copy: "Diagnose traces, tests, incidents, and performance shifts.", event: "submit(trace_diagnosis)" },
+  { id: "canvas", label: "System Canvas", icon: Network, copy: "Connect services and make system boundaries visible." },
+  { id: "editor", label: "Editor", icon: Code2, copy: "Work in code, prompt, SQL, JSON, and config modes." },
+  { id: "config", label: "Config Lab", icon: SlidersHorizontal, copy: "Tune model, retrieval, retry, and runtime settings." },
+  { id: "inspect", label: "Logs + Metrics", icon: Activity, copy: "Diagnose traces, tests, incidents, and performance shifts." },
 ];
 
-const curriculumAreas = [
-  ["07", "Embeddings"],
-  ["08", "Vector DBs"],
-  ["10", "Retrieval"],
-  ["12", "Prompt systems"],
-  ["16", "API reliability"],
-  ["22", "Agent tools"],
-];
-
-function RevealWords({ text }: { text: string }) {
-  return (
-    <span className="cinematic-word-line" aria-label={text}>
-      {text.split(" ").map((word, index) => (
-        <span
-          aria-hidden="true"
-          className="cinematic-word"
-          key={`${word}-${index}`}
-          style={{ "--word-delay": `${Math.min(index * 34, 620)}ms` } as CSSProperties}
-        >
-          {word}&nbsp;
-        </span>
-      ))}
-    </span>
-  );
+function useScrollReveal() {
+  useEffect(() => {
+    const nodes = Array.from(document.querySelectorAll<HTMLElement>(".landing-page [data-reveal]"));
+    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+      nodes.forEach((node) => node.classList.add("revealed"));
+      return;
+    }
+    const observer = new IntersectionObserver(
+      (entries) => entries.forEach((entry) => {
+        if (entry.isIntersecting) entry.target.classList.add("revealed");
+      }),
+      { rootMargin: "0px 0px -8% 0px", threshold: 0.1 },
+    );
+    nodes.forEach((node) => observer.observe(node));
+    return () => observer.disconnect();
+  }, []);
 }
 
 export default function LandingPage() {
   const [renderer, setRenderer] = useState(0);
-  const rootRef = useRef<HTMLElement>(null);
-  const heroRef = useRef<HTMLElement>(null);
-  const loopRef = useRef<HTMLElement>(null);
+  const [reducedMotion] = useState(() => window.matchMedia("(prefers-reduced-motion: reduce)").matches);
   const proofVideoRef = useRef<HTMLVideoElement>(null);
-  const activeStep = useLandingCinematics(rootRef, heroRef, loopRef, narrative.length);
+  useScrollReveal();
   const RendererIcon = rendererModes[renderer].icon;
-  const activeNarrative = narrative[activeStep];
 
   useEffect(() => {
     const video = proofVideoRef.current;
-    if (!video || window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+    if (!video || reducedMotion) return;
     const observer = new IntersectionObserver(([entry]) => {
       if (entry.isIntersecting) void video.play().catch(() => undefined);
       else video.pause();
     }, { threshold: 0.2 });
     observer.observe(video);
     return () => observer.disconnect();
-  }, []);
+  }, [reducedMotion]);
 
   return (
-    <main className="landing-page cinematic-landing" ref={rootRef}>
+    <main className="landing-page landing-page-polished">
       <ProductNav transparent />
-      <div className="cinematic-atmosphere" aria-hidden="true" />
-      <div className="cinematic-grid" aria-hidden="true" />
-
-      <section className="cinematic-hero" ref={heroRef}>
-        <div className="cinematic-hero-sticky">
-          <div className="cinematic-hero-copy" data-hero-meta>
-            <p className="eyebrow"><Focus size={14} /> Adaptive technical prep</p>
-            <div className="cinematic-live-note"><span /> EVIDENCE-AWARE INTERVIEW ENGINE</div>
+      <section className="landing-hero">
+        <div className="hero-copy hero-entry">
+          <p className="eyebrow"><Focus size={14} /> Adaptive technical prep</p>
+          <h1>Technical interviews should react to <em>what you do.</em></h1>
+          <p>
+            BuzzPrep turns prep into an adaptive technical workspace.
+            Explain. Build. Debug. Adapt.
+          </p>
+          <div className="hero-actions">
+            <Link className="primary-cta" to="/auth?mode=signup">Start a prep <ArrowRight size={17} /></Link>
+            <Link className="text-cta" to="/demo/setup">Open the hackathon demo</Link>
           </div>
-
-          <h1 className="cinematic-hero-title" aria-label="Technical interviews should react to what you do">
-            <span data-hero-line>Technical interviews</span>
-            <span data-hero-line>should react to</span>
-            <span data-hero-line><em>what you do.</em></span>
-          </h1>
-
-          <div className="cinematic-hero-support" data-hero-meta>
-            <p>Explain. Build. Debug. Adapt. BuzzPrep evaluates the answer and the engineering actions behind it.</p>
-            <div className="hero-actions">
-              <Link className="primary-cta" to="/auth?mode=signup">Start a prep <ArrowRight size={17} /></Link>
-              <Link className="text-cta" to="/demo/setup">Open the hackathon demo</Link>
-            </div>
-            <div className="hero-proof">
-              <span><Check size={14} /> 8+ evidence-backed questions</span>
-              <span><Check size={14} /> 4+ curriculum days</span>
-              <span><Check size={14} /> 31-day curriculum grounded</span>
-            </div>
+          <div className="hero-proof">
+            <span><Check size={14} /> 8+ evidence-backed questions</span>
+            <span><Check size={14} /> 4+ curriculum areas</span>
+            <span><Check size={14} /> No fake completion score</span>
           </div>
-
-          <div className="cinematic-hero-product" data-hero-product>
-            <div className="cinematic-product-label"><span>LIVE PRODUCT PREVIEW</span><em>Actions become evidence</em></div>
-            <ProductSequence compact />
-          </div>
-
-          <div className="cinematic-scroll-cue" data-hero-cue aria-hidden="true">
-            <span>SCROLL TO ENTER THE INTERVIEW</span>
-            <ArrowDown size={15} />
-          </div>
+        </div>
+        <div className="hero-product hero-entry hero-entry-product">
+          <div className="hero-product-label"><span>PRODUCT PREVIEW</span><em>Actions become evidence</em></div>
+          <ProductSequence />
         </div>
       </section>
 
-      <section className="cinematic-statement">
-        <div className="cinematic-section-index" data-reveal>01 / THE DIFFERENCE</div>
-        <h2 data-reveal>
-          <RevealWords text="A chatbot hears your answer." />
-          <span className="statement-dim"><RevealWords text="BuzzPrep watches the engineering decision unfold." /></span>
+      <section className="statement-band" data-reveal>
+        <span>NOT A CHATBOT SIMULATION</span>
+        <h2>
+          The interviewer adapts not only to what you say, but to what you actually
+          <em> build, configure, connect, inspect, and debug.</em>
         </h2>
-        <div className="cinematic-statement-proof" data-reveal>
-          <span><Workflow size={15} /> workspace actions</span>
-          <ArrowRight size={14} />
-          <span><Bot size={15} /> adaptive follow-up</span>
-          <ArrowRight size={14} />
-          <span><MemoryStick size={15} /> evidence-backed feedback</span>
-        </div>
       </section>
 
-      <section className="cinematic-loop" id="how-it-works" ref={loopRef}>
-        <div className="cinematic-loop-sticky">
-          <div className="cinematic-loop-heading">
-            <p className="eyebrow"><GitBranch size={14} /> One continuous loop</p>
-            <h2>Every next question has a reason.</h2>
-            <p>No random question bank. No fake completion score. The interview keeps pressure on the evidence.</p>
-          </div>
-
-          <div className="cinematic-loop-stage" aria-live="polite">
-            <header>
-              <span><i /> LIVE INTERVIEW GRAPH</span>
-              <strong>STEP {activeNarrative.number} / 06</strong>
-            </header>
-            <div className="loop-stage-grid" aria-hidden="true" />
-            <div className="loop-stage-rail" aria-hidden="true">
-              {narrative.map((item, index) => (
-                <span className={index <= activeStep ? "passed" : ""} key={item.number}><i /></span>
-              ))}
-            </div>
-            <div className="loop-stage-card" key={activeNarrative.number}>
-              <span>{activeNarrative.number} / {activeNarrative.title}</span>
-              <h3>{activeNarrative.copy}</h3>
-              <code>{activeNarrative.event}</code>
-            </div>
-            <footer>
-              <span>candidate + workspace</span>
-              <ArrowRight size={14} />
-              <span>next interview state</span>
-            </footer>
-          </div>
-
-          <div className="cinematic-loop-steps">
-            {narrative.map((item, index) => (
-              <article className={index === activeStep ? "active" : index < activeStep ? "passed" : ""} key={item.number}>
-                <span>{item.number}</span>
-                <div><h3>{item.title}</h3><p>{item.copy}</p></div>
-                <ArrowRight size={15} />
-              </article>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      <section className="cinematic-workspace" id="workspace">
-        <div className="workspace-intro" data-reveal>
-          <div>
-            <p className="eyebrow"><Layers3 size={14} /> A workspace, not a textbox</p>
-            <h2><RevealWords text="Four interaction families. One evidence model." /></h2>
-          </div>
-          <p>BuzzPrep changes the environment to fit the engineering skill being tested instead of forcing every topic into the same UI.</p>
-        </div>
-
-        <div className="cinematic-renderer" data-reveal data-parallax="0.04">
-          <div className="cinematic-renderer-tabs" role="tablist" aria-label="Workspace renderer modes">
-            {rendererModes.map((mode, index) => {
-              const Icon = mode.icon;
-              return (
-                <button
-                  type="button"
-                  role="tab"
-                  aria-selected={renderer === index}
-                  onClick={() => setRenderer(index)}
-                  key={mode.id}
-                >
-                  <span>0{index + 1}</span><Icon size={16} /><strong>{mode.label}</strong>
-                </button>
-              );
-            })}
-          </div>
-
-          <div className="cinematic-renderer-stage">
-            <header><RendererIcon size={16} /><strong>{rendererModes[renderer].label}</strong><span>STRUCTURED ACTION STREAM</span></header>
-            <div className={`cinematic-renderer-demo mode-${rendererModes[renderer].id}`}>
-              <div className="renderer-main-panel">
-                <span><TerminalSquare size={15} /> challenge.workspace</span>
-                <strong>{rendererModes[renderer].copy}</strong>
-                <div className="renderer-visual-lines"><i /><i /><i /><i /><i /></div>
-                <div className="renderer-nodes" aria-hidden="true"><b /><b /><b /></div>
-              </div>
-              <aside>
-                <span>Evidence emitted</span>
-                <code>{rendererModes[renderer].event}</code>
-                <small>Selection alone is UI state. Only meaningful mutations become semantic evidence.</small>
-              </aside>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      <section className="cinematic-adaptive">
-        <div className="adaptive-giant" data-reveal>
-          <span>02 / PRESSURE TEST</span>
-          <h2><RevealWords text="Strong answers do not end the conversation." /></h2>
-          <p>They earn a harder constraint.</p>
-        </div>
-        <div className="adaptive-conversation" data-reveal data-parallax="0.03">
-          <article><span><Bot size={14} /> Interviewer</span><p>Why use a hybrid retrieval path here?</p></article>
-          <article className="candidate"><span>Candidate + 3 workspace actions</span><p>Dense recall catches semantic matches; lexical fallback protects exact identifiers.</p></article>
-          <div className="constraint-insert"><ShieldCheck size={15} /> New constraint: p95 latency is now 150 ms.</div>
-          <article><span><Bot size={14} /> Adaptive follow-up</span><p>Which branch do you budget first, and what recall loss will you accept?</p></article>
-        </div>
-      </section>
-
-      <section className="cinematic-proof">
-        <header data-reveal>
+      <section className="product-proof-section" data-reveal>
+        <header>
           <div>
             <p className="eyebrow"><MonitorUp size={14} /> Real product, in motion</p>
-            <h2>Not a concept render.</h2>
+            <h2>See the prep react before you start one.</h2>
           </div>
-          <p>These captures come from the working BuzzPrep product flow.</p>
+          <p>Short captures from the live product—not a concept render.</p>
         </header>
-        <div className="cinematic-proof-grid" data-reveal>
-          <figure className="cinematic-proof-loop">
+        <div className="product-proof-grid">
+          <figure className="product-proof-loop">
             <video
               ref={proofVideoRef}
-              autoPlay
+              autoPlay={!reducedMotion}
               muted
               loop
               playsInline
@@ -276,7 +135,7 @@ export default function LandingPage() {
             </video>
             <figcaption><span>01 / ADAPTIVE LOOP</span><strong>Constraint → workspace action → follow-up</strong></figcaption>
           </figure>
-          <div className="cinematic-proof-stills">
+          <div className="product-proof-stills">
             <figure>
               <img src="/media/candidate-setup.jpg" alt="BuzzPrep candidate profile selection screen" loading="lazy" />
               <figcaption><span>02 / SETUP</span><strong>Start from a real candidate profile</strong></figcaption>
@@ -289,37 +148,110 @@ export default function LandingPage() {
         </div>
       </section>
 
-      <section className="cinematic-evidence" id="evidence">
-        <div className="evidence-heading" data-reveal>
-          <span>03 / FEEDBACK WITH RECEIPTS</span>
-          <h2><RevealWords text="Feedback should remember what you demonstrated." /></h2>
-          <p>Concise evidence follows the interview without replacing canonical session state.</p>
+      <section className="narrative-section" id="how-it-works">
+        <div className="section-heading sticky-heading" data-reveal>
+          <p className="eyebrow"><GitBranch size={14} /> One continuous loop</p>
+          <h2>Every turn leaves evidence. Every next turn has a reason.</h2>
+          <p>No random question bank. No completion percentage pretending to be insight.</p>
         </div>
-
-        <div className="cinematic-evidence-grid">
-          <div className="evidence-ledger" data-reveal>
-            <div className="ledger-head"><span>SESSION EVIDENCE</span><span>Day / turn / source</span><span>Signal</span></div>
-            <div><span>D08 · T04</span><p>Explained cosine similarity; missed index recall and latency interaction.</p><em>Gap</em></div>
-            <div><span>D16 · T06</span><p>Configured timeout handling and justified bounded retry behavior.</p><em className="positive">Strength</em></div>
-            <div><span>D22 · T07</span><p>Trace diagnosis matched the workspace change and verbal explanation.</p><em className="positive">Evidence</em></div>
-          </div>
-          <div className="evidence-stats" data-reveal>
-            <article><strong>8+</strong><span>questions before completion</span></article>
-            <article><strong>4+</strong><span>distinct curriculum days</span></article>
-            <article><strong>31</strong><span>curriculum days available</span></article>
-          </div>
+        <div className="narrative-list">
+          {narrative.map(([number, title, copy]) => (
+            <article key={number} data-reveal>
+              <span>{number}</span><h3>{title}</h3><p>{copy}</p><ArrowRight size={16} />
+            </article>
+          ))}
         </div>
+      </section>
 
-        <div className="curriculum-marquee" data-reveal aria-label="Example curriculum areas">
-          <div>
-            {[...curriculumAreas, ...curriculumAreas].map(([day, area], index) => (
-              <span key={`${day}-${area}-${index}`}><i>DAY {day}</i>{area}<em>{index % 3 === 0 ? "evidence" : "adaptive"}</em></span>
-            ))}
+      <section className="renderer-section" id="workspace">
+        <div className="section-heading" data-reveal>
+          <p className="eyebrow"><Layers3 size={14} /> A workspace, not a textbox</p>
+          <h2>Four interaction families. One evidence model.</h2>
+        </div>
+        <div className="renderer-showcase" data-reveal>
+          <div className="renderer-tabs" role="tablist" aria-label="Workspace renderer modes">
+            {rendererModes.map((mode, index) => {
+              const Icon = mode.icon;
+              return (
+                <button
+                  type="button"
+                  role="tab"
+                  aria-selected={renderer === index}
+                  onClick={() => setRenderer(index)}
+                  key={mode.id}
+                >
+                  <Icon size={16} /><span>{mode.label}</span><em>0{index + 1}</em>
+                </button>
+              );
+            })}
+          </div>
+          <div className="renderer-stage">
+            <header><RendererIcon size={16} /><strong>{rendererModes[renderer].label}</strong><span>Structured action stream</span></header>
+            <div className={`renderer-demo mode-${rendererModes[renderer].id}`}>
+              <div className="renderer-demo-primary">
+                <span><TerminalSquare size={15} /> challenge.workspace</span>
+                <strong>{rendererModes[renderer].copy}</strong>
+                <div className="demo-lines"><i /><i /><i /><i /></div>
+              </div>
+              <aside>
+                <span>Evidence emitted</span>
+                <code>{rendererModes[renderer].id === "canvas" ? "connect(node_a, node_b)" : rendererModes[renderer].id === "editor" ? "edit(prompt.system)" : rendererModes[renderer].id === "config" ? "configure(timeout_ms)" : "submit(trace_diagnosis)"}</code>
+                <small>Selection alone is never treated as semantic evidence.</small>
+              </aside>
+            </div>
           </div>
         </div>
       </section>
 
-      <section className="cinematic-focus">
+      <section className="adaptive-section">
+        <div className="adaptive-copy" data-reveal>
+          <p className="eyebrow"><Bot size={14} /> Adaptive interviewer</p>
+          <h2>Your answer changes the next question.</h2>
+          <p>
+            A strong answer earns a deeper constraint. A weak answer triggers a focused
+            prerequisite probe. Python keeps the coverage gate fixed; the model cannot end early.
+          </p>
+          <dl>
+            <div><dt>Strong signal</dt><dd>Pressure-test the trade-off</dd></div>
+            <div><dt>Unclear signal</dt><dd>Probe the missing prerequisite</dd></div>
+            <div><dt>Workspace conflict</dt><dd>Ask about what the candidate actually changed</dd></div>
+          </dl>
+        </div>
+        <div className="adaptive-thread" data-reveal>
+          <article><span><Bot size={14} /> Interviewer</span><p>Why use a hybrid retrieval path here?</p></article>
+          <article className="candidate"><span>Candidate + 3 actions</span><p>Dense recall catches semantic matches; lexical fallback protects exact identifiers.</p></article>
+          <div className="constraint-insert"><ShieldCheck size={15} /> New constraint: p95 latency is now 150 ms.</div>
+          <article><span><Bot size={14} /> Adaptive follow-up</span><p>Which branch do you budget first, and what recall loss will you accept?</p></article>
+        </div>
+      </section>
+
+      <section className="evidence-section" id="evidence">
+        <div className="section-heading" data-reveal>
+          <p className="eyebrow"><MemoryStick size={14} /> Scoped evidence memory</p>
+          <h2>Feedback reflects what you demonstrated.</h2>
+        </div>
+        <div className="evidence-ledger" data-reveal>
+          <div className="ledger-head"><span>SESSION EVIDENCE</span><span>Day / turn / source</span><span>Signal</span></div>
+          <div><span>D08 · T04</span><p>Explained cosine similarity; missed index recall and latency interaction.</p><em>Gap</em></div>
+          <div><span>D16 · T06</span><p>Configured timeout handling and justified bounded retry behavior.</p><em className="positive">Strength</em></div>
+          <div><span>D22 · T07</span><p>Trace diagnosis matched the workspace change and verbal explanation.</p><em className="positive">Evidence</em></div>
+        </div>
+      </section>
+
+      <section className="curriculum-section">
+        <div className="curriculum-copy" data-reveal>
+          <p className="eyebrow"><DatabaseZap size={14} /> Multi-area coverage</p>
+          <h2>Prep across the system, not inside one favorite topic.</h2>
+          <p>Every session spans at least four curriculum days before final feedback can unlock.</p>
+        </div>
+        <div className="curriculum-track" data-reveal>
+          {["Embeddings", "Vector DBs", "Retrieval", "Prompt systems", "Agent tools", "API reliability"].map((area, index) => (
+            <span key={area}><i>DAY {String([7, 8, 10, 12, 16, 22][index]).padStart(2, "0")}</i>{area}<em>{index < 4 ? "covered" : "next"}</em></span>
+          ))}
+        </div>
+      </section>
+
+      <section className="focus-section">
         <div className="focus-visual" data-reveal>
           <MonitorUp size={36} />
           <span>DESKTOP FOCUS MODE</span>
@@ -328,26 +260,23 @@ export default function LandingPage() {
           <div><ChartNoAxesCombined size={15} /> Results remain available on mobile</div>
         </div>
         <div className="focus-copy" data-reveal>
-          <p className="eyebrow"><ShieldCheck size={14} /> Focused, not invasive</p>
-          <h2>Practice under pressure without surveillance theater.</h2>
-          <p>BuzzPrep records the workspace actions you intentionally make and transparent focus-state changes—never webcam, screen recording, or biometrics. Voice input is opt-in and browser-controlled.</p>
+          <p className="eyebrow"><MonitorUp size={14} /> Proctor-ready by design</p>
+          <h2>Built for focused desktop practice. No invasive surveillance.</h2>
+          <p>
+            Active prep uses a larger technical workspace. BuzzPrep records only transparent
+            focus changes and the actions you intentionally make in the workspace—never webcam,
+            screen recording, or biometrics. Optional voice input is browser-controlled and user-triggered.
+          </p>
         </div>
       </section>
 
-      <section className="cinematic-final">
-        <div className="final-orbit" aria-hidden="true"><span /><span /><span /></div>
-        <div data-reveal>
-          <span><Sparkles size={17} /> THE NEXT ANSWER SHOULD CHANGE THE ROOM.</span>
-          <h2><RevealWords text="Practice how you think while you build." /></h2>
-          <p>Eight or more questions. Four or more curriculum days. One interview that actually reacts.</p>
-          <div className="hero-actions">
-            <Link className="primary-cta" to="/auth?mode=signup">Create your BuzzPrep account <ArrowRight size={17} /></Link>
-            <Link className="text-cta" to="/demo/setup">Run the public demo</Link>
-          </div>
-        </div>
+      <section className="final-cta" data-reveal>
+        <span><Braces size={18} /> YOUR NEXT ANSWER SHOULD CHANGE THE ROOM.</span>
+        <h2>Practice the part interviews usually miss: how you think while you build.</h2>
+        <Link className="primary-cta" to="/auth?mode=signup">Create your BuzzPrep account <ArrowRight size={17} /></Link>
       </section>
 
-      <footer className="landing-footer cinematic-footer">
+      <footer className="landing-footer">
         <Link className="brand-lockup compact" to="/"><span>BuzzPrep</span></Link>
         <p>Adaptive technical preparation grounded in real workspace evidence.</p>
         <div><Link to="/auth?mode=signin">Sign in</Link><Link to="/demo/setup">Demo</Link><a href="https://github.com/amaansyed27/BuzzPrep">GitHub</a></div>
