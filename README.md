@@ -10,19 +10,23 @@ candidate says and what they do in a structured engineering challenge.
 - LangGraph owns the adaptive question, evaluation, follow-up, and feedback flow.
 - Python enforces the completion gate: at least 8 questions across 4 curriculum days.
 - SQLite persists local/test sessions; standard PostgreSQL persists deployed sessions.
-- Gemini uses validated structured generation with bounded retries and secret-safe errors.
+- Gemini, GroqCloud, and OpenRouter share one validated structured-generation interface.
+  Runtime availability failures fail over in that order; invalid client requests do not.
 - Breeth stores only high-signal, session/candidate-scoped evidence and degrades safely.
 - The workspace includes a React Flow system canvas, Monaco-based editor, configuration
   lab, and logs/metrics/trace inspection mode.
 - Workspace mutations are serialized and sent with the candidate's answer; simple visual
   selection is not treated as evidence.
 - The final view renders the required `summary`, `strengths`, `gaps`, and `next` fields.
+- The public product includes a landing page, Magic Link auth, a real SQL-backed dashboard,
+  resumable interview history, readiness checks, and mobile-safe completed results.
 
 ## Architecture
 
 - Frontend: React 19, Vite, TypeScript, Zustand, React Flow, Monaco, Lucide.
 - Backend: Python 3.12, FastAPI, Pydantic, LangGraph, SQLAlchemy, psycopg 3.
-- LLM: Gemini structured generation, or an explicitly selected deterministic fake provider.
+- LLM: Gemini Interactions structured generation with GroqCloud and OpenRouter fallbacks,
+  or an explicitly selected deterministic fake provider for offline development.
 - Memory: Breeth Python SDK behind a small `MemoryService` interface.
 - Persistence: local SQLite or deployed PostgreSQL (Supabase is supported directly through
   its normal Postgres connection string; the Supabase Data API is not used).
@@ -43,15 +47,26 @@ Process environment variables take precedence over `.env`. Never commit `.env`.
 ```env
 DATABASE_URL=sqlite:///./buzzprep.db
 
+SUPABASE_URL=
+SUPABASE_PUBLISHABLE_KEY=
+
+LLM_PROVIDER_CHAIN=gemini,groq,openrouter
 LLM_PROVIDER=gemini
 LLM_API_KEY=
 LLM_MODEL=gemini-3.6-flash
+GROQ_API_KEY=
+GROQ_MODEL=openai/gpt-oss-120b
+OPENROUTER_API_KEY=
+OPENROUTER_MODEL=openrouter/free
 
 BREETH_API_KEY=
 BREETH_ENABLED=true
 
 VITE_API_BASE_URL=http://127.0.0.1:8000
-CORS_ORIGINS=http://localhost:5173,http://127.0.0.1:5173
+VITE_SUPABASE_URL=
+VITE_SUPABASE_PUBLISHABLE_KEY=
+VITE_ENABLE_AUTH=true
+CORS_ORIGINS=http://localhost:5173,http://127.0.0.1:5173,https://buzzprep-web.vercel.app
 ```
 
 `LLM_PROVIDER=fake` is allowed for tests and explicit local demos. A normal run never falls
@@ -82,6 +97,11 @@ npm run dev
 
 Open `http://127.0.0.1:5173`. Vite proxies `/api` and `/health` to the local API.
 
+Landing, authentication, dashboard, history, and results are responsive. Starting or
+resuming an active technical prep requires a viewport at least 960 CSS pixels wide and a
+fine pointer; smaller/touch-only devices receive a desktop requirement with a copy-link
+action instead of a cramped workspace.
+
 For a deterministic demo without credentials, set these values in `.env` before starting
 the backend:
 
@@ -91,6 +111,19 @@ BREETH_ENABLED=false
 ```
 
 Restore `LLM_PROVIDER=gemini` before a live-provider demo.
+
+Magic Link authentication requires a Supabase project. Set the backend and `VITE_` public
+URL/publishable-key pairs to the same project. In Supabase Auth URL Configuration use:
+
+```text
+Site URL: https://buzzprep-web.vercel.app
+Redirect URLs:
+  https://buzzprep-web.vercel.app/auth/callback
+  http://localhost:5173/auth/callback
+  http://127.0.0.1:5173/auth/callback
+```
+
+Only the publishable key belongs in Vite. Never expose a secret/service-role key.
 
 ## Verification
 
@@ -129,6 +162,17 @@ python scripts\smoke_gemini.py
 This starts a real session, submits one strong and one weak answer, and prints only a
 secret-safe summary of the adaptive responses.
 
+Live structured smoke for the complete provider chain:
+
+```powershell
+cd backend
+.\.venv\Scripts\Activate.ps1
+python scripts\smoke_structured_providers.py
+```
+
+This makes one bounded, schema-validated request to Gemini `gemini-3.6-flash`, GroqCloud
+`openai/gpt-oss-120b`, and OpenRouter `openrouter/free`. It does not run during pytest.
+
 Live Breeth smoke (outside pytest):
 
 ```powershell
@@ -149,9 +193,12 @@ Start:
 ```json
 {
   "sessionId": "abc-123",
-  "candidate": { "member": {}, "missions": [], "signals": {} }
+  "candidate": {}
 }
 ```
+
+An empty object selects the neutral public-evaluator profile. The candidate product flow
+sends the exact supplied candidate object from `candidates.json`.
 
 Continue, optionally with additive workspace evidence:
 
@@ -188,6 +235,18 @@ Final:
 Non-final responses may add `challenge` and `progress`. They never expose hidden scores,
 rubrics, answer keys, or future questions.
 
+When the browser sends a valid Supabase bearer token, the new session is associated with
+the verified token subject. The browser never supplies a trusted raw user id. These routes
+require that token and return only the current user's rows:
+
+```text
+GET /api/me/interviews
+GET /api/me/interviews/{sessionId}
+```
+
+Public evaluator sessions remain ownerless. Integrity events such as tab visibility,
+focus, fullscreen, and reconnect are stored separately from semantic workspace evidence.
+
 ## PostgreSQL and Supabase
 
 Set `DATABASE_URL` to a normal psycopg-compatible PostgreSQL URL. For Vercel or another
@@ -210,13 +269,6 @@ Public hackathon demo:
 - API: <https://buzzprep-api.vercel.app>
 - Health: <https://buzzprep-api.vercel.app/health>
 
-The currently published demo profile explicitly uses `LLM_PROVIDER=fake`,
-`BREETH_ENABLED=false`, and SQLite under Vercel's writable `/tmp` directory. It proves the
-public evaluator contract and browser integration, but it is not the live-provider,
-durable-database submission profile. Before presenting it as the final hosted build, replace
-those project settings with Gemini, Breeth, and a persistent Postgres `DATABASE_URL`, then
-redeploy and repeat the live smoke tests.
-
 The two application roots are independently deployable:
 
 ```powershell
@@ -230,16 +282,26 @@ vercel
 Configure backend production variables:
 
 - `DATABASE_URL`
+- `LLM_PROVIDER_CHAIN`
 - `LLM_PROVIDER`
 - `LLM_API_KEY`
 - `LLM_MODEL`
+- `GROQ_API_KEY`
+- `GROQ_MODEL`
+- `OPENROUTER_API_KEY`
+- `OPENROUTER_MODEL`
 - `BREETH_API_KEY`
 - `BREETH_ENABLED`
+- `SUPABASE_URL`
+- `SUPABASE_PUBLISHABLE_KEY`
 - `CORS_ORIGINS` (the deployed frontend origin)
 
 Configure frontend production variables:
 
 - `VITE_API_BASE_URL` (the deployed backend origin, without a trailing slash)
+- `VITE_SUPABASE_URL`
+- `VITE_SUPABASE_PUBLISHABLE_KEY`
+- `VITE_ENABLE_AUTH=true`
 
 Verify the deployed backend before promotion:
 
