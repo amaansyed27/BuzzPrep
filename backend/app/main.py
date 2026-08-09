@@ -10,7 +10,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
 from app.api.interview import router as interview_router
-from app.config import load_environment
+from app.config import configured_cors_origins, load_environment
 from app.db.database import Database
 from app.interview.engine import AdaptiveInterviewEngine
 from app.llm.factory import build_llm_provider
@@ -58,7 +58,7 @@ def create_app(
 
     application.add_middleware(
         CORSMiddleware,
-        allow_origins=["http://localhost:5173"],
+        allow_origins=configured_cors_origins(),
         allow_credentials=True,
         allow_methods=["*"],
         allow_headers=["*"],

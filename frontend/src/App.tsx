@@ -1,28 +1,12 @@
-import { useMemo, useEffect } from "react";
-import Topbar from "./Topbar";
-import CandidatePanel from "./CandidatePanel";
-import FlowCanvas from "./FlowCanvas";
-import ChatPanel from "./ChatPanel";
+import InterviewShell from "./InterviewShell";
+import ResultsScreen from "./ResultsScreen";
+import SetupScreen from "./SetupScreen";
 import { useInterviewStore } from "./useInterviewStore";
 
-const AppShell = () => {
-  const setSessionId = useInterviewStore((s) => s.setSessionId);
+export default function App() {
+  const phase = useInterviewStore((state) => state.phase);
 
-  useEffect(() => {
-    const id = crypto.randomUUID();
-    setSessionId(id);
-  }, [setSessionId]);
-
-  return (
-    <main className="app-shell premium-bg">
-      <Topbar />
-      <section className="workspace-grid">
-        <CandidatePanel />
-        <FlowCanvas />
-        <ChatPanel />
-      </section>
-    </main>
-  );
-};
-
-export default AppShell;
+  if (phase === "setup") return <SetupScreen />;
+  if (phase === "results") return <ResultsScreen />;
+  return <InterviewShell />;
+}

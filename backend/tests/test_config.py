@@ -5,7 +5,7 @@ from pathlib import Path
 
 import pytest
 
-from app.config import load_environment
+from app.config import configured_cors_origins, load_environment
 from app.llm.base import LLMConfigurationError
 from app.llm.factory import build_llm_provider
 from app.llm.fake import FakeLLMProvider
@@ -39,3 +39,17 @@ def test_missing_provider_never_silently_selects_fake(
 
 def test_fake_provider_requires_explicit_selection() -> None:
     assert isinstance(build_llm_provider(provider_name="fake"), FakeLLMProvider)
+
+
+def test_cors_origins_are_explicit_and_normalized(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv(
+        "CORS_ORIGINS",
+        " https://buzzprep.example/,http://127.0.0.1:5173 ",
+    )
+
+    assert configured_cors_origins() == [
+        "https://buzzprep.example",
+        "http://127.0.0.1:5173",
+    ]
