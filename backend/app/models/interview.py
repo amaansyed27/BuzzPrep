@@ -20,6 +20,7 @@ class InterviewSession(Base):
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     session_id: Mapped[str] = mapped_column(String(255), unique=True, index=True, nullable=False)
+    owner_id: Mapped[str | None] = mapped_column(String(255), index=True, nullable=True)
     candidate_data: Mapped[dict[str, Any]] = mapped_column(JSON, nullable=False)
 
     status: Mapped[str] = mapped_column(String(32), default="active", index=True, nullable=False)
@@ -32,6 +33,9 @@ class InterviewSession(Base):
     workspace_snapshot: Mapped[dict[str, Any]] = mapped_column(JSON, default=dict, nullable=False)
     structured_scores: Mapped[dict[str, Any]] = mapped_column(JSON, default=dict, nullable=False)
     completion_state: Mapped[dict[str, Any]] = mapped_column(JSON, default=dict, nullable=False)
+    integrity_telemetry: Mapped[list[dict[str, Any]]] = mapped_column(
+        JSON, default=list, nullable=False
+    )
 
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=utcnow, nullable=False

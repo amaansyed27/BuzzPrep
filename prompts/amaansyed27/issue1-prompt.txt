@@ -1,0 +1,288 @@
+Yesterday 1:49 PM
+
+@
+GitHub
+ Work on the BuzzPrep repository:
+
+https://github.com/amaansyed27/BuzzPrep
+
+Task
+
+Implement Issue #1 — Backend: implement interview sessions and persistent state
+
+https://github.com/amaansyed27/BuzzPrep/issues/1
+
+This chat is exclusively for Issue #1.
+
+Do not implement later issues such as:
+
+candidate profiling/planning (#3)
+LangGraph/LLM interviewer (#5)
+Breeth memory/evaluation (#7)
+deployment/integration (#9)
+frontend work
+
+Those will be handled separately.
+
+Before editing
+Inspect the current repository and README/docs.
+Read Issue #1 completely.
+Inspect the supplied technical specification:
+hackathon-resources/technical-spec.md
+Confirm the default branch is main.
+Fetch/update the latest main.
+Create and work only on a dedicated branch:
+issue/1-interview-session-state
+
+
+
+Do not make implementation commits directly to main.
+
+Goal
+
+Turn the existing FastAPI scaffold into BuzzPrep's deterministic interview-session and persistence layer.
+
+The required endpoint must remain:
+
+POST /api/interview
+
+
+
+The implementation must preserve the organiser's request/response contract.
+
+Starting an interview
+
+Input:
+
+{
+  "sessionId": "abc-123",
+  "candidate": { ... }
+}
+
+
+
+This must create and persist an interview session.
+
+Subsequent turn
+
+Input:
+
+{
+  "sessionId": "abc-123",
+  "message": "..."
+}
+
+
+
+This must retrieve and update the same persisted session.
+
+Do not build the real AI interviewer yet. Keep that behind a clean service boundary so Issue #5 can replace the placeholder later.
+
+Persistence
+
+Use:
+
+SQLModel / SQLAlchemy
+SQLite for local development
+DATABASE_URL configuration so Neon PostgreSQL can be used later without redesigning the persistence layer
+
+Persist deterministic state such as:
+
+sessionId
+candidate/profile data required by the interview
+interview status
+question/turn count
+curriculum days covered
+current curriculum day/topic if applicable
+current challenge definition/state
+workspace snapshot/evidence
+accumulated structured scores/evaluations if represented
+conversation turns required for context
+completion state
+timestamps
+
+Design the schema so later issues can extend it without rewriting the session system.
+
+Do not add Breeth here. Breeth semantic memory belongs to Issue #7.
+
+API behavior
+
+Implement clear distinction between:
+
+new-session request;
+existing-session conversation request;
+malformed request;
+unknown sessionId;
+completed session.
+
+Use Pydantic models and structured errors.
+
+Do not return fake AI-generated success or fake interview content.
+
+Any placeholder interviewer behavior must be explicit and easy to replace.
+
+Architecture
+
+Keep responsibilities separated.
+
+Prefer modules along the lines of:
+
+backend/app/
+├── api/
+├── models/
+├── schemas/
+├── services/
+├── db/
+└── ...
+
+
+
+Exact naming can differ if the existing scaffold suggests a better structure.
+
+The API route should not directly contain database/business logic.
+
+Create a session service/repository boundary that later interview-engine code can call.
+
+Tests
+
+Add automated tests covering at minimum:
+
+creating a new session;
+retrieving the same session on the next HTTP request;
+updating persisted state;
+unknown session ID;
+malformed start request;
+malformed conversation request;
+duplicate/reused session ID behavior;
+persistence across separate DB/session instances;
+API response compatibility with the hackathon technical specification.
+
+Tests must not require:
+
+a live LLM;
+Breeth;
+Neon;
+paid services.
+
+Use isolated temporary SQLite databases for tests.
+
+Important constraints
+Do not change the organiser's required API contract unnecessarily.
+Do not commit secrets or .env files.
+Do not implement frontend work.
+Do not implement the interview planner.
+Do not implement LangGraph.
+Do not implement Breeth.
+Do not implement deployment.
+Do not silently invent candidate/curriculum behavior belonging to later issues.
+Keep the implementation simple enough for a hackathon but structurally sound.
+Verification
+
+Before finishing, run all relevant checks available in the repository.
+
+At minimum attempt:
+
+cd backend
+python -m pytest
+
+
+
+Also verify that the FastAPI application imports/starts successfully.
+
+If dependency installation or another environment limitation prevents a check, report exactly what could and could not be verified.
+
+Git workflow
+
+Work only on:
+
+issue/1-interview-session-state
+
+
+
+During implementation:
+
+make logical commits;
+keep unrelated changes out;
+regularly check whether main has changed;
+before opening the PR, update the branch against the latest main;
+resolve conflicts only when the correct resolution is clear;
+preserve work from other contributors;
+never discard another contributor's changes merely to make the branch apply cleanly.
+
+If a conflict requires a product/architecture decision rather than a mechanical merge, stop and report it instead of guessing.
+
+Pull request
+
+When Issue #1 is complete:
+
+Push issue/1-interview-session-state.
+Open a pull request targeting main.
+Link/close Issue #1 from the PR description.
+Include:
+summary;
+architecture/state-model decisions;
+files/subsystems changed;
+database behavior;
+tests added;
+commands run and results;
+any limitations or follow-up work intentionally left for later issues.
+
+Do not merge the pull request.
+
+Stop after the PR is opened.
+
+The PR will be reviewed and any merge conflicts or integration issues will be handled separately before merging.
+
+Final response
+
+Report:
+
+branch name;
+final commit SHA;
+PR number/link;
+concise implementation summary;
+database/schema summary;
+test results;
+unresolved concerns;
+anything later issues need to know about the interfaces created here.
+Worked for 10m 10s
+
+Issue #1 is complete and the PR is open. It has not been merged.
+
+Branch: issue/1-interview-session-state
+Final commit: f62dbf953b0a499816e7aac6c1e4df73ebd026a0
+PR: #11 — Backend: persist interview sessions and deterministic state
+Target: main
+Issue: PR contains Closes #1
+Implementation
+
+POST /api/interview now distinguishes start requests from conversation turns and persists the session across requests. It handles malformed requests, duplicate IDs, unknown IDs, and completed sessions with structured errors.
+
+The route contains no database/business logic. Responsibilities are split across API, schemas, services, persistence models, and DB configuration.
+
+Database
+
+Two SQLAlchemy tables:
+
+interview_sessions — candidate JSON, status, question/turn counts, curriculum coverage, current topic/day, challenge state, workspace snapshot, structured scores, completion state, timestamps.
+interview_turns — ordered candidate/interviewer transcript with optional structured payload/evidence.
+
+Local default is SQLite. DATABASE_URL can switch the same layer to PostgreSQL/Neon; psycopg 3 support was added.
+
+Verification
+cd backend
+python -m pytest
+
+Result:
+
+10 passed
+
+Also passed FastAPI import/startup, /health startup smoke check, and python -m compileall -q app tests.
+
+Ruff was attempted but could not run because it is not installed in the execution environment. Direct GitHub cloning was also unavailable due external DNS, so GitHub operations used the connected GitHub app and tests ran against a matching local reconstruction of the branch code.
+
+Interfaces for later issues
+
+Issue #5 can replace PlaceholderInterviewEngine through the InterviewEngine boundary. It can return InterviewEngineResult plus validated InterviewStatePatch updates without redesigning persistence or changing the organiser API.
+
+No candidate planner, LangGraph, Breeth, deployment, or frontend work was implemented. main had not changed before the PR was opened, so no rebase/conflict resolution was necessary.

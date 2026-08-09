@@ -11,7 +11,13 @@ from app.curriculum.models import (
     CurriculumModule,
 )
 
-RESOURCE_ROOT = Path(__file__).resolve().parents[3] / "hackathon-resources"
+REPOSITORY_RESOURCE_ROOT = Path(__file__).resolve().parents[3] / "hackathon-resources"
+PACKAGED_RESOURCE_ROOT = Path(__file__).resolve().parents[2] / "resources"
+RESOURCE_ROOT = (
+    REPOSITORY_RESOURCE_ROOT
+    if REPOSITORY_RESOURCE_ROOT.exists()
+    else PACKAGED_RESOURCE_ROOT
+)
 DEFAULT_CURRICULUM_PATH = RESOURCE_ROOT / "curriculum.json"
 
 

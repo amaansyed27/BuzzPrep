@@ -1,23 +1,33 @@
-import React from "react";
+import { CircleDot, Clock3 } from "lucide-react";
 import { useInterviewStore } from "./useInterviewStore";
-import { formatShort } from "./utils_format";
 
 export default function Topbar() {
-  const sessionId = useInterviewStore((s) => s.sessionId);
-  const started = useInterviewStore((s) => s.started);
+  const candidate = useInterviewStore((state) => state.candidate);
+  const challenge = useInterviewStore((state) => state.challenge);
+  const progress = useInterviewStore((state) => state.progress);
+  const sessionId = useInterviewStore((state) => state.sessionId);
 
   return (
-    <header className="topbar premium-topbar">
-      <div>
-        <p className="eyebrow">BuzzPrep</p>
-        <h1>Interview IDE</h1>
+    <header className="interview-topbar">
+      <div className="brand-lockup compact">
+        <span className="brand-mark">B</span>
+        <span>BUZZPREP</span>
       </div>
-
-      <div className="topbar-right">
-        <div className={`status-pill ${started ? "connected" : "idle"}`}>
-          {started ? "Connected" : "Not started"}
-        </div>
-        <div className="session-id" aria-live="polite">{sessionId ? formatShort(sessionId) : "—"}</div>
+      <div className="topbar-context">
+        <span className="live-indicator"><CircleDot size={14} /> LIVE INTERVIEW</span>
+        <strong>{candidate?.member.name}</strong>
+        <span>{candidate?.member.jobRole}</span>
+      </div>
+      <div className="topbar-current">
+        <small>CURRENT AREA</small>
+        <strong>{challenge ? `Day ${challenge.curriculumDay} · ${challenge.topic}` : "Preparing challenge"}</strong>
+      </div>
+      <div className="topbar-progress">
+        <span><b>{progress?.questionsAsked ?? 0}</b> / {progress?.minimumQuestions ?? 8}+ questions</span>
+        <span><b>{progress?.daysCovered ?? 0}</b> / {progress?.minimumDays ?? 4}+ days</span>
+      </div>
+      <div className="session-chip" title={sessionId ?? undefined}>
+        <Clock3 size={14} aria-hidden="true" /> {sessionId?.slice(0, 8)}
       </div>
     </header>
   );

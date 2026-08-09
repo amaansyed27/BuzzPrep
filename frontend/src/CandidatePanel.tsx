@@ -1,55 +1,59 @@
-import React from "react";
-import { Play } from "lucide-react";
-import { startSession as apiStart } from "./interviewApi";
+import { Braces, Check, Circle, UserRound } from "lucide-react";
 import { useInterviewStore } from "./useInterviewStore";
 
 export default function CandidatePanel() {
-  const sessionId = useInterviewStore((s) => s.sessionId);
-  const started = useInterviewStore((s) => s.started);
-  const busy = useInterviewStore((s) => s.busy);
-  const setBusy = useInterviewStore((s) => s.setBusy);
-  const setStarted = useInterviewStore((s) => s.setStarted);
-  const pushMessage = useInterviewStore((s) => s.pushMessage);
-  const setError = useInterviewStore((s) => s.setError);
+  const candidate = useInterviewStore((state) => state.candidate);
+  const challenge = useInterviewStore((state) => state.challenge);
+  const progress = useInterviewStore((state) => state.progress);
+  const coveredAreas = useInterviewStore((state) => state.coveredAreas);
 
-  async function startDemo() {
-    if (!sessionId || busy || started) return;
-    setBusy(true);
-    try {
-      const resp = await apiStart(sessionId, { member: { name: "Demo Candidate" } });
-      pushMessage({ role: "interviewer", text: resp.reply });
-      setStarted(true);
-    } catch (err) {
-      // err is ErrorResponse from backend or network exception
-      setError((err as any) ?? { error: { code: "client_error", message: "Connection error", details: null } });
-    } finally {
-      setBusy(false);
-    }
-  }
+  if (!candidate) return null;
 
   return (
-    <aside className="panel candidate-panel">
-      <p className="panel-kicker">Interview</p>
-      <h2>Adaptive technical workspace</h2>
-      <p className="muted">
-        The workspace selects tasks and evaluates conversation + workspace actions. Start the demo session to verify the frontend→API flow.
-      </p>
+    <aside className="session-rail">
+      <section className="rail-section candidate-identity">
+        <span className="rail-label"><UserRound size={13} /> Candidate</span>
+        <strong>{candidate.member.name}</strong>
+        <p>{candidate.member.jobRole} · {candidate.member.yearsExperience}y</p>
+      </section>
 
-      <dl className="session-meta">
-        <div>
-          <dt>Session</dt>
-          <dd>{sessionId ? sessionId.slice(0, 8) : "—"}</dd>
-        </div>
-        <div>
-          <dt>State</dt>
-          <dd>{started ? "Demo started" : "Not started"}</dd>
-        </div>
-      </dl>
+      <section className="rail-section progress-section">
+        <span className="rail-label">Minimum progress</span>
+        <label>
+          <span>Questions <b>{progress?.questionsAsked ?? 0} / {progress?.minimumQuestions ?? 8}+</b></span>
+          <progress value={progress?.questionsAsked ?? 0} max={progress?.minimumQuestions ?? 8} />
+        </label>
+        <label>
+          <span>Days covered <b>{progress?.daysCovered ?? 0} / {progress?.minimumDays ?? 4}+</b></span>
+          <progress value={progress?.daysCovered ?? 0} max={progress?.minimumDays ?? 4} />
+        </label>
+      </section>
 
-      <button className="primary-button" onClick={startDemo} disabled={started || busy} aria-disabled={started || busy}>
-        <Play size={14} />
-        {started ? "Demo started" : busy ? "Starting…" : "Start demo session"}
-      </button>
+      <section className="rail-section covered-section">
+        <span className="rail-label">Covered areas</span>
+        <ol>
+          {coveredAreas.map((area) => (
+            <li key={area.day}>
+              <Check size={13} aria-hidden="true" />
+              <span><b>Day {area.day}</b>{area.topic}</span>
+            </li>
+          ))}
+          {coveredAreas.length < (progress?.minimumDays ?? 4) && (
+            <li className="pending-area"><Circle size={10} /><span>More curriculum evidence required</span></li>
+          )}
+        </ol>
+      </section>
+
+      <section className="rail-section challenge-brief">
+        <span className="rail-label"><Braces size={13} /> Challenge brief</span>
+        <div className="day-token">DAY {challenge?.curriculumDay ?? "—"}</div>
+        <h2>{challenge?.topic ?? "Preparing challenge"}</h2>
+        <p>{challenge?.challengeSummary ?? "The interviewer is selecting a practical task."}</p>
+        <div className="challenge-tags">
+          <span>{challenge?.difficulty ?? "adaptive"}</span>
+          <span>{challenge?.questionKind.replaceAll("_", " ") ?? "initial"}</span>
+        </div>
+      </section>
     </aside>
   );
 }

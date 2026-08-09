@@ -1,59 +1,151 @@
 import { create } from "zustand";
-import type { Node, Edge } from "@xyflow/react";
-import type { InterviewResponse, ErrorResponse } from "./apiTypes";
+import type {
+  CandidateRecord,
+  ChallengeMetadata,
+  ErrorResponse,
+  Feedback,
+  InterviewProgress,
+  InterviewResponse,
+  InterviewHistoryDetail,
+} from "./apiTypes";
 
-type Message = { role: "interviewer" | "candidate"; text: string; kind?: string };
-
-type SessionMeta = { status?: string; turnCount?: number };
-
-type InterviewState = {
-  sessionId: string | null;
-  started: boolean;
-  busy: boolean;
-  lastError: ErrorResponse | null;
-  messages: Message[];
-  nodes: Node[];
-  edges: Edge[];
-  sessionMeta: SessionMeta;
-  setSessionId: (id: string) => void;
-  setStarted: (v: boolean) => void;
-  setBusy: (v: boolean) => void;
-  setError: (e: ErrorResponse | null) => void;
-  pushMessage: (m: Message) => void;
-  setNodes: (ns: Node[]) => void;
-  setEdges: (es: Edge[]) => void;
-  setSessionMeta: (m: SessionMeta) => void;
-  clearMessages: () => void;
+export type InterviewMessage = {
+  id: string;
+  role: "interviewer" | "candidate";
+  text: string;
 };
 
-export const useInterviewStore = create<InterviewState>((set, get) => ({
+export type CoveredArea = {
+  day: number;
+  topic: string;
+};
+
+type InterviewPhase = "setup" | "interview" | "results";
+
+type InterviewState = {
+  phase: InterviewPhase;
+  sessionId: string | null;
+  candidate: CandidateRecord | null;
+  busy: boolean;
+  lastError: ErrorResponse | null;
+  messages: InterviewMessage[];
+  challenge: ChallengeMetadata | null;
+  progress: InterviewProgress | null;
+  coveredAreas: CoveredArea[];
+  feedback: Feedback | null;
+  prepareInterview: (candidate: CandidateRecord, sessionId: string) => void;
+  startInterview: (
+    candidate: CandidateRecord,
+    sessionId: string,
+    response: InterviewResponse,
+  ) => void;
+  pushCandidateMessage: (text: string) => void;
+  applyResponse: (response: InterviewResponse) => void;
+  setBusy: (busy: boolean) => void;
+  setError: (error: ErrorResponse | null) => void;
+  restart: () => void;
+  resumeInterview: (detail: InterviewHistoryDetail) => void;
+};
+
+const asMessage = (
+  role: InterviewMessage["role"],
+  text: string,
+): InterviewMessage => ({ id: crypto.randomUUID(), role, text });
+
+function appendCoveredArea(
+  coveredAreas: CoveredArea[],
+  challenge?: ChallengeMetadata | null,
+): CoveredArea[] {
+  if (!challenge || coveredAreas.some((area) => area.day === challenge.curriculumDay)) {
+    return coveredAreas;
+  }
+  return [
+    ...coveredAreas,
+    { day: challenge.curriculumDay, topic: challenge.topic },
+  ];
+}
+
+export const useInterviewStore = create<InterviewState>((set) => ({
+  phase: "setup",
   sessionId: null,
-  started: false,
+  candidate: null,
   busy: false,
   lastError: null,
-  messages: [
-    {
-      role: "interviewer",
-      text: "Scaffold ready. Start a demo session to verify the frontend-to-API flow.",
-    },
-  ],
-  nodes: [
-    { id: "scenario", position: { x: 80, y: 120 }, data: { label: "Scenario" } },
-    { id: "workspace", position: { x: 310, y: 120 }, data: { label: "Interactive task" } },
-    { id: "outcome", position: { x: 560, y: 120 }, data: { label: "Explain decision" } },
-  ],
-  edges: [
-    { id: "scenario-workspace", source: "scenario", target: "workspace" },
-    { id: "workspace-outcome", source: "workspace", target: "outcome" },
-  ],
-  sessionMeta: {},
-  setSessionId: (id) => set({ sessionId: id }),
-  setStarted: (v) => set({ started: v }),
-  setBusy: (v) => set({ busy: v }),
-  setError: (e) => set({ lastError: e }),
-  pushMessage: (m) => set((s) => ({ messages: [...s.messages, m] })),
-  setNodes: (ns) => set({ nodes: ns }),
-  setEdges: (es) => set({ edges: es }),
-  setSessionMeta: (m) => set({ sessionMeta: m }),
-  clearMessages: () => set({ messages: [] }),
+  messages: [],
+  challenge: null,
+  progress: null,
+  coveredAreas: [],
+  feedback: null,
+
+  prepareInterview: (candidate, sessionId) =>
+    set({
+      phase: "setup",
+      candidate,
+      sessionId,
+      busy: false,
+      lastError: null,
+      messages: [],
+      challenge: null,
+      progress: null,
+      coveredAreas: [],
+      feedback: null,
+    }),
+
+  startInterview: (candidate, sessionId, response) =>
+    set({
+      phase: response.done ? "results" : "interview",
+      sessionId,
+      candidate,
+      messages: [asMessage("interviewer", response.reply)],
+      challenge: response.challenge ?? null,
+      progress: response.progress ?? null,
+      coveredAreas: appendCoveredArea([], response.challenge),
+      feedback: response.feedback ?? null,
+      lastError: null,
+    }),
+
+  pushCandidateMessage: (text) =>
+    set((state) => ({ messages: [...state.messages, asMessage("candidate", text)] })),
+
+  applyResponse: (response) =>
+    set((state) => ({
+      phase: response.done ? "results" : state.phase,
+      messages: [...state.messages, asMessage("interviewer", response.reply)],
+      challenge: response.challenge ?? state.challenge,
+      progress: response.progress ?? state.progress,
+      coveredAreas: appendCoveredArea(state.coveredAreas, response.challenge),
+      feedback: response.feedback ?? state.feedback,
+      lastError: null,
+    })),
+
+  setBusy: (busy) => set({ busy }),
+  setError: (lastError) => set({ lastError }),
+  resumeInterview: (detail) =>
+    set({
+      phase: detail.status === "completed" ? "results" : "interview",
+      sessionId: detail.sessionId,
+      candidate: detail.candidate,
+      busy: false,
+      lastError: null,
+      messages: detail.messages.map((message) => asMessage(message.role, message.text)),
+      challenge: detail.challenge ?? null,
+      progress: detail.progress,
+      coveredAreas: detail.challenge
+        ? [{ day: detail.challenge.curriculumDay, topic: detail.challenge.topic }]
+        : [],
+      feedback: detail.feedback ?? null,
+    }),
+  restart: () =>
+    set({
+      phase: "setup",
+      sessionId: null,
+      candidate: null,
+      busy: false,
+      lastError: null,
+      messages: [],
+      challenge: null,
+      progress: null,
+      coveredAreas: [],
+      feedback: null,
+    }),
 }));
